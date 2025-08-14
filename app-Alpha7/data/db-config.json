@@ -1,0 +1,8 @@
+{
+    "db": {
+        "user": "leitura_unico_loja01",
+        "host":"192.168.0.4",
+        "database": "wlmachado_loja01_20250805",
+        "password": "nqf4OeCwzeb"
+    }
+}
