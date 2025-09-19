@@ -1,48 +1,8 @@
-import express from 'express';
-import cors from 'cors';
-import fs from 'fs-extra';
-import path from 'path';
-import 'dotenv/config';
-import { fileURLToPath } from 'url';
-import { exec } from 'child_process';
-import archiver from 'archiver';
-import { rimraf } from 'rimraf';
-<<<<<<< HEAD:src/server.js
-import installingRoutes from './routes/installing.routes.js'
-=======
-import helmet from 'helmet';
+import { Router } from "express";
 
->>>>>>> 4b9159f2c9e4463d4fa7521261fa4e07f31fad43:server.js
+const router = Router()
 
-// --- Lógica para recriar o __dirname em ES Modules ---
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const whiteList = [
-  'https://unico-integra.vercel.app/main',
-  'https://localhost:3000',
-  'https://localhost:5173',
-];
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    whiteList.includes(origin) || !origin
-      ? callback(null, true)
-      : callback(new Error('Acesso não permitido.'));
-  },
-};
-
-const app = express();
-const PORT = process.env.PORT || 8000;
-
-app.use(helmet())
-app.use(cors(corsOptions));
-app.use(express.json());
-
-/**
- * Rota principal para gerar o aplicativo
- */
-app.post('/api/generate', async (req, res) => {
+app.post('/app', async (req, res) => {
   console.log('Requisição de geração recebida com os dados:', req.body);
 
   const clientData = req.body;
@@ -157,8 +117,4 @@ app.post('/api/generate', async (req, res) => {
   }
 });
 
-app.use('/install', installingRoutes)
-
-app.listen(PORT, () => {
-  console.log(`Servidor Gerador rodando na porta ${PORT}`);
-});
+export default router;
