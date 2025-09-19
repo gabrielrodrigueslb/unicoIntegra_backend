@@ -1,3 +1,5 @@
+// server.js - Versão Final e Funcional
+
 import express from 'express';
 import cors from 'cors';
 import fs from 'fs-extra';
@@ -7,36 +9,17 @@ import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
 import archiver from 'archiver';
 import { rimraf } from 'rimraf';
-<<<<<<< HEAD:src/server.js
 import installingRoutes from './routes/installing.routes.js'
-=======
-import helmet from 'helmet';
-
->>>>>>> 4b9159f2c9e4463d4fa7521261fa4e07f31fad43:server.js
 
 // --- Lógica para recriar o __dirname em ES Modules ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-const whiteList = [
-  'https://unico-integra.vercel.app/main',
-  'https://localhost:3000',
-  'https://localhost:5173',
-];
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    whiteList.includes(origin) || !origin
-      ? callback(null, true)
-      : callback(new Error('Acesso não permitido.'));
-  },
-};
+// --- Fim da lógica ---
 
 const app = express();
-const PORT = process.env.PORT || 8000;
+const PORT = 4000;
 
-app.use(helmet())
-app.use(cors(corsOptions));
+app.use(cors());
 app.use(express.json());
 
 /**
@@ -83,27 +66,19 @@ app.post('/api/generate', async (req, res) => {
     ].join(' && ');
 
     await new Promise((resolve, reject) => {
-      exec(
-        pkgCommand,
-        { /* shell: 'cmd.exe', */ timeout: 300000 },
-        (error, stdout, stderr) => {
-          console.log('--- Saída do Processo (stdout) ---');
-          console.log(stdout);
-          console.log('--- Saída de Erro do Processo (stderr) ---');
-          console.log(stderr);
-          if (error) {
-            return reject(
-              new Error(
-                `Falha ao executar o pkg. Mensagem: ${error.message}. Stderr: ${
-                  stderr || 'vazio'
-                }`,
-              ),
-            );
-          }
-          console.log("Comando 'pkg' executado com sucesso.");
-          resolve(stdout);
-        },
-      );
+      exec(pkgCommand, { shell: 'cmd.exe', timeout: 300000 }, (error, stdout, stderr) => {
+        console.log('--- Saída do Processo (stdout) ---');
+        console.log(stdout);
+        console.log('--- Saída de Erro do Processo (stderr) ---');
+        console.log(stderr);
+        if (error) {
+          return reject(
+            new Error(`Falha ao executar o pkg. Mensagem: ${error.message}. Stderr: ${stderr || 'vazio'}`),
+          );
+        }
+        console.log("Comando 'pkg' executado com sucesso.");
+        resolve(stdout);
+      });
     });
 
     // 4. Cria o arquivo ZIP com todos os arquivos do projeto modificado
@@ -112,17 +87,15 @@ app.post('/api/generate', async (req, res) => {
       const output = fs.createWriteStream(outputZipPath);
       const archive = archiver('zip', { zlib: { level: 9 } });
       output.on('close', () => {
-        console.log(
-          `ZIP criado com sucesso. Total de bytes: ${archive.pointer()}`,
-        );
+        console.log(`ZIP criado com sucesso. Total de bytes: ${archive.pointer()}`);
         resolve();
       });
       archive.on('error', (err) => reject(err));
       archive.pipe(output);
-
+      
       // ALTERAÇÃO: Adiciona a pasta de build dentro de uma pasta raiz no ZIP
       archive.directory(buildPath, 'app-Alpha7-configurado');
-
+      
       archive.finalize();
     });
 
@@ -136,23 +109,22 @@ app.post('/api/generate', async (req, res) => {
         } else {
           console.log('Arquivo ZIP enviado com sucesso para o cliente.');
         }
-
+        
         // Limpeza é feita aqui, DENTRO do callback do download.
         console.log('Iniciando limpeza dos arquivos temporários...');
         await rimraf(buildPath); // Apaga a pasta de build inteira
         console.log('Limpeza concluída.');
       },
     );
+
   } catch (error) {
     console.error('Ocorreu um erro no processo de geração:', error);
     if (await fs.pathExists(buildPath)) {
-      console.log(`Limpando pasta de build após erro: ${buildPath}`);
-      await rimraf(buildPath);
+        console.log(`Limpando pasta de build após erro: ${buildPath}`);
+        await rimraf(buildPath);
     }
     if (!res.headersSent) {
-      res
-        .status(500)
-        .json({ message: 'Falha na geração', error: error.message });
+      res.status(500).json({ message: 'Falha na geração', error: error.message });
     }
   }
 });
