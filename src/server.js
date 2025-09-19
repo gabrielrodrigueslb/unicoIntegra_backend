@@ -4,10 +4,12 @@ import express from 'express';
 import cors from 'cors';
 import fs from 'fs-extra';
 import path from 'path';
+import 'dotenv/config';
 import { fileURLToPath } from 'url';
-import { exec } from 'child_process'; // <-- CORREÇÃO: Importa a função 'exec'
+import { exec } from 'child_process';
 import archiver from 'archiver';
 import { rimraf } from 'rimraf';
+import installingRoutes from './routes/installing.routes.js'
 
 // --- Lógica para recriar o __dirname em ES Modules ---
 const __filename = fileURLToPath(import.meta.url);
@@ -126,6 +128,8 @@ app.post('/api/generate', async (req, res) => {
     }
   }
 });
+
+app.use('/install', installingRoutes)
 
 app.listen(PORT, () => {
   console.log(`Servidor Gerador rodando na porta ${PORT}`);
