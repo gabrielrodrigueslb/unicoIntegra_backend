@@ -7,30 +7,32 @@ import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
 import archiver from 'archiver';
 import { rimraf } from 'rimraf';
-<<<<<<< HEAD:src/server.js
 import installingRoutes from './routes/installing.routes.js'
-=======
 import helmet from 'helmet';
 
->>>>>>> 4b9159f2c9e4463d4fa7521261fa4e07f31fad43:server.js
 
 // --- Lógica para recriar o __dirname em ES Modules ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const whiteList = [
-  'https://unico-integra.vercel.app/main',
-  'https://localhost:3000',
-  'https://localhost:5173',
+  'http://localhost:5173', // front dev
+  'http://localhost:3000',
+  'https://unico-integra.vercel.app' // produção
 ];
 
 const corsOptions = {
   origin: function (origin, callback) {
-    whiteList.includes(origin) || !origin
-      ? callback(null, true)
-      : callback(new Error('Acesso não permitido.'));
+    if (!origin || whiteList.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`Acesso não permitido para origem ${origin}`));
+    }
   },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 };
+
 
 const app = express();
 const PORT = process.env.PORT || 8000;
