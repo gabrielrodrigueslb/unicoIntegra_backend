@@ -38,7 +38,7 @@ const app = express();
 const PORT = 4000;
 
 app.use(helmet())
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 /**
