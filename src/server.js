@@ -21,24 +21,15 @@ const whiteList = [
   'https://unico-integra.vercel.app' // produção
 ];
 
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin || whiteList.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`Acesso não permitido para origem ${origin}`));
-    }
-  },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-};
-
-
 const app = express();
 const PORT = 4000;
 
 
-app.use(cors(corsOptions)); 
+app.use(cors({
+  origin: ['https://unico-integra.vercel.app', 'http://localhost:5173'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(helmet());         
 app.use(express.json());
 
