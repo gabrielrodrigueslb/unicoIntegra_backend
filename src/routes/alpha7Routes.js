@@ -2,7 +2,7 @@ import { Router } from "express";
 
 const router = Router()
 
-app.post('/app', async (req, res) => {
+router.post('/app', async (req, res) => {
   console.log('Requisição de geração recebida com os dados:', req.body);
 
   const clientData = req.body;

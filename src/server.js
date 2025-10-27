@@ -9,6 +9,7 @@ import archiver from 'archiver';
 import { rimraf } from 'rimraf';
 import installingRoutes from './routes/installing.routes.js'
 import helmet from 'helmet';
+import {Router} from 'express';
 
 
 // --- Lógica para recriar o __dirname em ES Modules ---

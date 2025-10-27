@@ -26,7 +26,6 @@ export async function installingIntegration(instance, integrationData) {
       integrationData,
       {
         headers: {
-          'Allow-Control-Allow-Origin': '*',
           'Content-Type': 'application/json',
           Authorization: `Bearer ${loginData.token}`,
         },
