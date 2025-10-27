@@ -1,5 +1,3 @@
-// server.js - Versão Final e Funcional
-
 import express from 'express';
 import cors from 'cors';
 import fs from 'fs-extra';
@@ -39,6 +37,7 @@ const corsOptions = {
 const app = express();
 const PORT = 4000;
 
+app.use(helmet())
 app.use(cors());
 app.use(express.json());
 
@@ -50,10 +49,10 @@ app.post('/api/generate', async (req, res) => {
 
   const clientData = req.body;
   const buildId = Date.now();
-  const buildPath = path.join(__dirname, 'builds-temporarios', `${buildId}`);
-  const sourceAppPath = path.join(__dirname, 'app-Alpha7');
+  const buildPath = path.join(__dirname, '..', 'builds-temporarios', `${buildId}`);
+  const sourceAppPath = path.join(__dirname, '..', 'app-Alpha7');
   const outputZipPath = path.join(
-    __dirname,
+    __dirname, '..',
     'builds-temporarios',
     `app-cliente-${buildId}.zip`,
   );
@@ -86,19 +85,27 @@ app.post('/api/generate', async (req, res) => {
     ].join(' && ');
 
     await new Promise((resolve, reject) => {
-      exec(pkgCommand, { shell: 'cmd.exe', timeout: 300000 }, (error, stdout, stderr) => {
-        console.log('--- Saída do Processo (stdout) ---');
-        console.log(stdout);
-        console.log('--- Saída de Erro do Processo (stderr) ---');
-        console.log(stderr);
-        if (error) {
-          return reject(
-            new Error(`Falha ao executar o pkg. Mensagem: ${error.message}. Stderr: ${stderr || 'vazio'}`),
-          );
-        }
-        console.log("Comando 'pkg' executado com sucesso.");
-        resolve(stdout);
-      });
+      exec(
+        pkgCommand,
+        { /* shell: 'cmd.exe', */ timeout: 300000 },
+        (error, stdout, stderr) => {
+          console.log('--- Saída do Processo (stdout) ---');
+          console.log(stdout);
+          console.log('--- Saída de Erro do Processo (stderr) ---');
+          console.log(stderr);
+          if (error) {
+            return reject(
+              new Error(
+                `Falha ao executar o pkg. Mensagem: ${error.message}. Stderr: ${
+                  stderr || 'vazio'
+                }`,
+              ),
+            );
+          }
+          console.log("Comando 'pkg' executado com sucesso.");
+          resolve(stdout);
+        },
+      );
     });
 
     // 4. Cria o arquivo ZIP com todos os arquivos do projeto modificado
@@ -107,15 +114,17 @@ app.post('/api/generate', async (req, res) => {
       const output = fs.createWriteStream(outputZipPath);
       const archive = archiver('zip', { zlib: { level: 9 } });
       output.on('close', () => {
-        console.log(`ZIP criado com sucesso. Total de bytes: ${archive.pointer()}`);
+        console.log(
+          `ZIP criado com sucesso. Total de bytes: ${archive.pointer()}`,
+        );
         resolve();
       });
       archive.on('error', (err) => reject(err));
       archive.pipe(output);
-      
+
       // ALTERAÇÃO: Adiciona a pasta de build dentro de uma pasta raiz no ZIP
       archive.directory(buildPath, 'app-Alpha7-configurado');
-      
+
       archive.finalize();
     });
 
@@ -129,25 +138,27 @@ app.post('/api/generate', async (req, res) => {
         } else {
           console.log('Arquivo ZIP enviado com sucesso para o cliente.');
         }
-        
+
         // Limpeza é feita aqui, DENTRO do callback do download.
         console.log('Iniciando limpeza dos arquivos temporários...');
         await rimraf(buildPath); // Apaga a pasta de build inteira
         console.log('Limpeza concluída.');
       },
     );
-
   } catch (error) {
     console.error('Ocorreu um erro no processo de geração:', error);
     if (await fs.pathExists(buildPath)) {
-        console.log(`Limpando pasta de build após erro: ${buildPath}`);
-        await rimraf(buildPath);
+      console.log(`Limpando pasta de build após erro: ${buildPath}`);
+      await rimraf(buildPath);
     }
     if (!res.headersSent) {
-      res.status(500).json({ message: 'Falha na geração', error: error.message });
+      res
+        .status(500)
+        .json({ message: 'Falha na geração', error: error.message });
     }
   }
 });
+
 
 app.use('/install', installingRoutes)
 
