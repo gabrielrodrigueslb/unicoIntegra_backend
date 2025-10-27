@@ -155,6 +155,16 @@ app.post('/api/generate', async (req, res) => {
 
 app.use('/install', installingRoutes)
 
-app.listen(PORT, () => {
-  console.log(`Servidor Gerador rodando na porta ${PORT}`);
+// --- CORREÇÃO PARA OUVIR NO IP CORRETO E CAPTURAR ERROS ---
+
+const HOST = '127.0.0.1'; // O mesmo IP que o Nginx está usando (127.0.0.1)
+
+app.listen(PORT, HOST, () => {
+  console.log(`Servidor Gerador rodando em http://${HOST}:${PORT}`);
+}).on('error', (err) => {
+  // Isso vai forçar qualquer erro de 'listen' a aparecer no log de ERRO do PM2
+  console.error('--- FALHA AO INICIAR O SERVIDOR ---');
+  console.error(err.message);
+  console.error(err.stack);
+  process.exit(1); // Força um crash "com erro"
 });
