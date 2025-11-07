@@ -1,21 +1,6 @@
 // installing.services.js
 import axios from 'axios';
-
-async function loginInstance(instance) {
-  const postData = {
-    username: 'rl--gabrielag',
-    password: '@Caio0305',
-    code: '',
-    trusted: false,
-  };
-
-  const loginResponse = await axios.post(`${instance}/login`, postData, {
-    headers: { 'Content-Type': 'application/json' },
-  });
-
-  console.log('Login successful:', loginResponse.data);
-  return loginResponse.data;
-}
+import loginInstance from './loginInstance.js';
 
 export async function installingIntegration(instance, integrationData) {
   try {
