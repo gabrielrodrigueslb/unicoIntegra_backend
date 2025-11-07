@@ -8,6 +8,7 @@ import { exec } from 'child_process';
 import archiver from 'archiver';
 import { rimraf } from 'rimraf';
 import installingRoutes from './routes/installing.routes.js'
+import createAiRoutes from './routes/ai.routes.js'
 import helmet from 'helmet';
 import {Router} from 'express';
 
@@ -154,10 +155,11 @@ app.post('/api/generate', async (req, res) => {
 
 
 app.use('/install', installingRoutes)
+app.use('/api/ia', createAiRoutes)
 
 // --- CORREÇÃO PARA OUVIR NO IP CORRETO E CAPTURAR ERROS ---
 
-const HOST = '127.0.0.1'; // O mesmo IP que o Nginx está usando (127.0.0.1)
+const HOST = process.env.HOST || '127.0.0.1'; 
 
 app.listen(PORT, HOST, () => {
   console.log(`Servidor Gerador rodando em http://${HOST}:${PORT}`);
