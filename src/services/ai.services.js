@@ -12,8 +12,6 @@ async function createAi(instance, token) {
       { name: 'Novo assistente' },
       {
         headers: {
-          'Allow-Control-Allow-Origin': 'https://unico-integra.vercel.app',
-          'Allow-Control-Allow-Methods': 'POST',
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
@@ -93,8 +91,6 @@ export async function createAiAlpha(instance, name, context, dbName, queueId, ap
       iaPayload,
       {
         headers: {
-          'Allow-Control-Allow-Origin': 'https://unico-integra.vercel.app',
-          'Allow-Control-Allow-Methods': 'POST',
           'Content-Type': 'application/json',
           Authorization: `Bearer ${loginData.token}`,
         },

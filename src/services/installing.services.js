@@ -11,8 +11,6 @@ export async function installingIntegration(instance, integrationData) {
       integrationData,
       {
         headers: {
-          'Allow-Control-Allow-Origin': 'https://unico-integra.vercel.app',
-          'Allow-Control-Allow-Methods': 'POST',
           'Content-Type': 'application/json',
           Authorization: `Bearer ${loginData.token}`,
         },

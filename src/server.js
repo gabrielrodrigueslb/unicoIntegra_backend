@@ -32,9 +32,10 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(helmet());         
+
+       
 app.use(express.json());
-app.options('*', cors());
+
 /**
  * Rota principal para gerar o aplicativo
  */
@@ -153,10 +154,10 @@ app.post('/api/generate', async (req, res) => {
   }
 });
 
-
-
 app.use('/install', installingRoutes)
 app.use('/api/ia', createAiRoutes)
+
+app.use(helmet());  
 
 // --- CORREÇÃO PARA OUVIR NO IP CORRETO E CAPTURAR ERROS ---
 
