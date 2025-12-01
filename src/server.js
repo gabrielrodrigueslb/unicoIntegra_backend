@@ -34,7 +34,7 @@ app.use(cors({
 }));
 app.use(helmet());         
 app.use(express.json());
-
+app.options('*', cors());
 /**
  * Rota principal para gerar o aplicativo
  */
@@ -152,6 +152,7 @@ app.post('/api/generate', async (req, res) => {
     }
   }
 });
+
 
 
 app.use('/install', installingRoutes)
