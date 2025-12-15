@@ -2,9 +2,9 @@
 import axios from 'axios';
 import loginInstance from './loginInstance.js';
 
-export async function installingIntegration(instance, integrationData) {
+export async function installingIntegration(instance, code, integrationData) {
   try {
-    const loginData = await loginInstance(instance);
+    const loginData = await loginInstance(instance, code);
 
     const installResponse = await axios.post(
       `${instance}/ivrs/`,

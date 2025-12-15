@@ -1,20 +1,23 @@
 import axios from 'axios';
 
-export async function loginInstance(instance) {
+export async function loginInstance(instance, code) {
   const postData = {
     username: 'rl--gabrielag',
     password: '@Caio0305',
-    code: '',
+    code: code,
     trusted: false,
   };
 
   try {
+    console.log('Codigo passado: ' + code)
     const loginResponse = await axios.post(`${instance}/login`, postData, {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json', // Solicita explicitamente JSON ao servidor
       },
     });
+
+    
 
     // Validação: Verifica se recebemos um token válido
     if (!loginResponse.data || !loginResponse.data.token) {

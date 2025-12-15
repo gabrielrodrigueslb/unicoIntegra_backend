@@ -3,13 +3,17 @@ import { installingIntegration } from '../services/installing.services.js';
 
 export async function installingIntegrations(req, res) {
   try {
-    const { instance, integrationData } = req.body;
+    const { instance, code, integrationData } = req.body;
 
     if (!instance) {
       return res.status(400).json({ message: 'O campo "instance" é obrigatório' });
     }
 
-    const result = await installingIntegration(instance, integrationData);
+    if(!code){
+      return res.status(400).json({message: 'O campo "code" é obrigatório'})
+    }
+
+    const result = await installingIntegration(instance, code, integrationData);
     res.status(200).json(result);
   } catch (error) {
     console.error('Erro no processo de instalação:', error);

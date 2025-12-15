@@ -3,7 +3,7 @@ import { createAiAlpha } from '../services/ai.services.js';
 export async function createAiController(req, res) {
   try {
     // 1. Obter todos os dados do body
-    const { instance, name, context, dbName, queueId, apiKey } = req.body;
+    const { instance, name, context, dbName, queueId, apiKey, code} = req.body;
 
     // 2. Validar campos obrigatórios
     if (!instance) {
@@ -21,10 +21,14 @@ export async function createAiController(req, res) {
     if (!apiKey) {
       return res.status(400).json({ message: 'O campo "apiKey" é obrigatório' });
     }
+    if(!code){
+      return res.status(400).json({ message: 'O campo "code" é obrigatório' });
+    }
 
     // 3. Chamar a função correta (createAiAlpha) com todos os parâmetros
     const aiResponse = await createAiAlpha(
       instance,
+      code,   
       name,
       context,
       dbName,
