@@ -9,8 +9,8 @@ import archiver from 'archiver';
 import { rimraf } from 'rimraf';
 import installingRoutes from './routes/installing.routes.js'
 import createAiRoutes from './routes/ai.routes.js'
+import databaseRoutes from './routes/database.routes.js'
 import helmet from 'helmet';
-import {Router} from 'express';
 
 
 // --- Lógica para recriar o __dirname em ES Modules ---
@@ -30,7 +30,7 @@ const PORT = 4000;
 app.use(cors({
   origin: ['https://unico-integra.vercel.app', 'http://localhost:5173'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key']
 }));
 
        
@@ -153,20 +153,19 @@ app.post('/api/generate', async (req, res) => {
     }
   }
 });
-
+app.use('/api/databases', databaseRoutes)
 app.use('/install', installingRoutes)
 app.use('/api/ia', createAiRoutes)
 
 app.use(helmet());  
 
-// --- CORREÇÃO PARA OUVIR NO IP CORRETO E CAPTURAR ERROS ---
 
 const HOST = process.env.HOST || '127.0.0.1'; 
 
 app.listen(PORT, HOST, () => {
   console.log(`Servidor Gerador rodando em http://${HOST}:${PORT}`);
 }).on('error', (err) => {
-  // Isso vai forçar qualquer erro de 'listen' a aparecer no log de ERRO do PM2
+
   console.error('--- FALHA AO INICIAR O SERVIDOR ---');
   console.error(err.message);
   console.error(err.stack);

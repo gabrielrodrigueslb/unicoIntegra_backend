@@ -9,6 +9,7 @@ lerna-debug.log*
 
 
 node_modules
+./node_modules
 builds-temporarios
 .env
 dist
@@ -25,4 +26,4 @@ dist-ssr
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
+*.sw? 
