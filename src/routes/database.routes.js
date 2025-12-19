@@ -6,7 +6,12 @@ import { apiKeyMiddleware } from "../middlewares/apiKey.middleware.js";
 
 const router = Router()
 
-router.get('/',apiKeyMiddleware, getDatabases);
-router.post('/createDatabase',apiKeyMiddleware, createDatabaseController);
+router.options('/createDatabase', (req, res) => {
+  // Apenas responda 204 "No Content", que é o que o preflight espera.
+  res.sendStatus(204);
+});
+
+router.get('/', getDatabases);
+router.post('/createDatabase', createDatabaseController);
 
 export default router
