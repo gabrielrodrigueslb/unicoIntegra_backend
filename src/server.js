@@ -10,6 +10,8 @@ import { rimraf } from 'rimraf';
 import installingRoutes from './routes/installing.routes.js'
 import createAiRoutes from './routes/ai.routes.js'
 import databaseRoutes from './routes/database.routes.js'
+import newsRoutes from './routes/news.routes.js';
+import { ensureNewsTableExists } from './services/news.services.js';
 import helmet from 'helmet';
 
 
@@ -156,13 +158,18 @@ app.post('/api/generate', async (req, res) => {
 app.use('/api/databases', databaseRoutes)
 app.use('/install', installingRoutes)
 app.use('/api/ia', createAiRoutes)
+app.use('/api/news', newsRoutes);
 
 app.use(helmet());  
 
 
 const HOST = process.env.HOST || '127.0.0.1'; 
 
-app.listen(PORT, HOST, () => {
+
+
+// 3. Inicialize o banco antes de subir o servidor
+ensureNewsTableExists().then(() => {
+  app.listen(PORT, HOST, () => {
   console.log(`Servidor Gerador rodando em http://${HOST}:${PORT}`);
 }).on('error', (err) => {
 
@@ -171,3 +178,7 @@ app.listen(PORT, HOST, () => {
   console.error(err.stack);
   process.exit(1); // Força um crash "com erro"
 });
+
+});
+
+
