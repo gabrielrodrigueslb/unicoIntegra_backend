@@ -3,7 +3,7 @@ import { adminPool } from '../database/adminPool.js';
 function sanitizeDbName(name) {
   return name
     .toLowerCase()
-    .replace(/[^a-z0-0_]/g, '')
+    .replace(/[^a-z0-9_-]/g, '') 
     .slice(0, 50);
 }
 
