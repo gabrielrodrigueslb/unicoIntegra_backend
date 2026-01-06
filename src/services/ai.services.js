@@ -29,9 +29,9 @@ export async function createAi(instance, token) {
   }
 }
 
-export async function createAiAlpha(instance, code2fa, name, context, dbName, queueId, apiKey) {
+export async function createAiAlpha(instance, username, password, code2fa, name, context, dbName, queueId, apiKey) {
   console.log('Primeira req de login')
-  const loginData = await loginInstance(instance, code2fa);
+  const loginData = await loginInstance(instance, username, password, code2fa);
   const aiData = await createAi(instance, loginData.token);
 
   const ivrIds = await alpha7Functions(
@@ -108,8 +108,8 @@ export async function createAiAlpha(instance, code2fa, name, context, dbName, qu
   }
 }
 
-export async function createDefaultAi(instance, code2fa, name, context) {
-  const loginData = await loginInstance(instance, code2fa);
+export async function createDefaultAi(instance,username, password, code2fa, name, context) {
+  const loginData = await loginInstance(instance,username, password, code2fa);
 
   let installResponse;
   let aiData;

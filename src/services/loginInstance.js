@@ -1,15 +1,14 @@
 import axios from 'axios';
 
-export async function loginInstance(instance, code) {
+export async function loginInstance(instance, username, password, code) {
   const postData = {
-    username: 'rl--gabrielag',
-    password: '@Caio0305',
+    username: username, 
+    password: password,
     code: code,
-    trusted: false,
+    trusted: false, // ou true se quiser manter a sessão por mais tempo
   };
-
+  
   try {
-    console.log('Codigo passado: ' + code)
     const loginResponse = await axios.post(`${instance}/login`, postData, {
       headers: {
         'Content-Type': 'application/json',
