@@ -1,0 +1,43 @@
+{
+  "name": "IA Vendas requisição",
+  "internaldescription": "",
+  "signaturename": "{{signaturename}}",
+  "type": 11,
+  "description": "{{context}}",
+  "kbdescription": "",
+  "condenseddescription": "",
+  "condensedkbdescription": "",
+  "preautomation": "{{preautomationId}}",
+  "postautomation": 0,
+  "waitfornewmsgs": 4,
+  "msgslimit": 100,
+  "functions": [
+    {
+      "id": "busca_produtos",
+      "name": "busca_produtos",
+      "attrs": [
+        {
+          "key": "produto",
+          "type": 0,
+          "required": true,
+          "description": "Nome buscável do produto. Ex.: quero um dipirona\"=\"dipirona\" "
+        }
+      ],
+      "automation": {{automationId}},
+      "description": ""
+    }
+  ],
+  "exittags": [
+    "atendente"
+  ],
+  "faqs": [],
+  "faqgroups": [],
+  "lookinproducts": 0,
+  "usebuttons": 0,
+  "multiplemessasgesreply": 0,
+  "allowdirectmessage": 0,
+  "explanationmessages": 0,
+  "enablelog": 0,
+  "optimizedescription": 0,
+  "files": []
+}

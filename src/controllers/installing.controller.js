@@ -5,24 +5,17 @@ export async function installingIntegrations(req, res) {
   try {
     const { instance, username, password, code, integrationData } = req.body;
 
-    if (!instance) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "instance" é obrigatório' });
-    }
-    if (!username) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "username" é obrigatório' });
-    }
-    if (!password) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "password" é obrigatório' });
+    if (!instance || !username || !password ) {
+      return res.status(400).json({ 
+        message: 'Credenciais (instance, username, password, code) são obrigatórias.' 
+      });
     }
 
     if (!code) {
       return res.status(400).json({ message: 'O campo "code" é obrigatório' });
+    }
+    if (!integrationData) {
+      return res.status(400).json({ message: 'O payload integrationData é obrigatório.' });
     }
 
     const result = await installingIntegration(
