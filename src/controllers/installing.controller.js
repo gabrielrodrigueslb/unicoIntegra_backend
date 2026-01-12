@@ -1,9 +1,10 @@
 // installing.controller.js
 import { installingIntegration } from '../services/installing.services.js';
+import { createLogService } from '../services/logs.services.js';
 
 export async function installingIntegrations(req, res) {
   try {
-    const { instance, username, password, code, integrationData } = req.body;
+    const { instance, integration, username, password, code, integrationData } = req.body;
 
     if (!instance || !username || !password ) {
       return res.status(400).json({ 
@@ -25,6 +26,10 @@ export async function installingIntegrations(req, res) {
       code,
       integrationData,
     );
+
+    const currentUser = username || 'Sistema';
+    await createLogService(currentUser, `Instalou ${integration}`, instance);
+
     res.status(200).json(result);
   } catch (error) {
     console.error('Erro no processo de instalação:', error);

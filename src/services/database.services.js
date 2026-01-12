@@ -79,6 +79,8 @@ export async function createDatabase(name) {
       WITH ENCODING 'UTF8'
     `);
 
+    
+
     // Retorna apenas o objeto de sucesso
     return { database: dbName, message: 'Criado com sucesso' };
 

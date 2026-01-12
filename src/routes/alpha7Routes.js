@@ -103,6 +103,10 @@ router.post('/app', async (req, res) => {
         console.log('Limpeza concluída.');
       },
     );
+
+    const currentUser = clientData.nome_cliente || 'Sistema';
+    await createLogService(currentUser, `Criou uma aplicação do alpha 7`, instance);
+
   } catch (error) {
     console.error('Ocorreu um erro no processo de geração:', error);
     if (await fs.pathExists(buildPath)) {

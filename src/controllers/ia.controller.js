@@ -1,4 +1,5 @@
 import { createAiAlpha, createDefaultAi } from '../services/ai.services.js';
+import { createLogService } from '../services/logs.services.js';
 
 export async function createAiAlphaController(req, res) {
   try {
@@ -67,6 +68,8 @@ export async function createAiAlphaController(req, res) {
       queueId,
       apiKey,
     );
+    const currentUser = username || 'Sistema';
+    await createLogService(currentUser, `Criou a IA do alpha 7 - ${name}`, instance);
 
     // 4. Retornar a resposta de sucesso
     res.status(200).json(aiResponse);
@@ -123,6 +126,8 @@ export async function createAiController(req, res) {
       name,
       context,
     );
+    const currentUser = username || 'Sistema';
+    await createLogService(currentUser, `Criou a IA de atendimento - ${name}`, instance);
 
     // 4. Retornar a resposta de sucesso
     res.status(200).json(aiResponse);

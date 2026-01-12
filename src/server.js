@@ -11,6 +11,7 @@ import installingRoutes from './routes/installing.routes.js'
 import createAiRoutes from './routes/ai.routes.js'
 import databaseRoutes from './routes/database.routes.js'
 import newsRoutes from './routes/news.routes.js';
+import logsRoutes from './routes/logs.routes.js';
 import { ensureNewsTableExists } from './services/news.services.js';
 import helmet from 'helmet';
 
@@ -159,6 +160,7 @@ app.use('/api/databases', databaseRoutes)
 app.use('/install', installingRoutes)
 app.use('/api/ia', createAiRoutes)
 app.use('/api/news', newsRoutes);
+app.use('/api', logsRoutes);
 
 app.use(helmet());  
 

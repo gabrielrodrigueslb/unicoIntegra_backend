@@ -1,4 +1,5 @@
 import { listDatabases, createDatabase } from "../services/database.services.js";
+import { createLogService } from "../services/logs.services.js";
 
 export async function getDatabases(req, res){
     try{
@@ -16,13 +17,18 @@ export async function getDatabases(req, res){
 export async function createDatabaseController(req, res){
     try {
         // CORREÇÃO: Pegar do body, não da query
-        const { name } = req.body; 
-
+        const { name, username } = req.body; 
+        const currentUser = username || 'Sistema';
         if (!name) {
             return res.status(400).json({ error: 'Nome do banco é obrigatório' });
         }
 
         const result = await createDatabase(name);
+
+        await createLogService(
+      currentUser, 
+      `Criou o banco ${name}`,name 
+    );
         
         return res.status(201).json(result);
 
