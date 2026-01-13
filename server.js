@@ -20,23 +20,38 @@ import helmet from 'helmet';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const whiteList = [
+
+const app = express();
+const PORT = 4000;
+
+const allowedOrigins = [
   'http://localhost:5173', // front dev
   'http://localhost:3000',
   'https://unico-integra.vercel.app' // produção
 ];
 
-const app = express();
-const PORT = 4000;
-
-
 app.use(cors({
-  origin: ['https://unico-integra.vercel.app', 'http://localhost:5173'],
+  origin: function (origin, callback) {
+    // Permite requisições sem 'origin' (como Postman ou Apps Mobile)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'A política de CORS deste site não permite acesso desta origem.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
+  credentials: true // Se precisar de cookies/sessão no futuro
 }));
 
-       
+app.use(helmet({
+  crossOriginResourcePolicy: false, // <--- IMPORTANTE: Permite que outros domínios carreguem recursos
+}));
+
+app.options('*', cors()); 
+
 app.use(express.json());
 
 /**
@@ -160,9 +175,7 @@ app.use('/api/databases', databaseRoutes)
 app.use('/install', installingRoutes)
 app.use('/api/ia', createAiRoutes)
 app.use('/api/news', newsRoutes);
-app.use('/api', logsRoutes);
-
-app.use(helmet());  
+app.use('/api', logsRoutes); 
 
 
 const HOST = process.env.HOST || '127.0.0.1'; 
