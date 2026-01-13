@@ -7,12 +7,12 @@ import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
 import archiver from 'archiver';
 import { rimraf } from 'rimraf';
-import installingRoutes from './src/routes/installing.routes.js'
-import createAiRoutes from './src/routes/ai.routes.js'
-import databaseRoutes from './src/routes/database.routes.js'
-import newsRoutes from './src/routes/news.routes.js';
-import logsRoutes from './src/routes/logs.routes.js';
-import { ensureNewsTableExists } from './src/services/news.services.js';
+import installingRoutes from './routes/installing.routes.js'
+import createAiRoutes from './routes/ai.routes.js'
+import databaseRoutes from './routes/database.routes.js'
+import newsRoutes from './routes/news.routes.js';
+import logsRoutes from './routes/logs.routes.js';
+import { ensureNewsTableExists } from './services/news.services.js';
 import helmet from 'helmet';
 
 
