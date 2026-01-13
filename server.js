@@ -49,8 +49,7 @@ app.use(cors({
 app.use(helmet({
   crossOriginResourcePolicy: false, // <--- IMPORTANTE: Permite que outros domínios carreguem recursos
 }));
-
-app.options('*', cors()); 
+ 
 
 app.use(express.json());
 
