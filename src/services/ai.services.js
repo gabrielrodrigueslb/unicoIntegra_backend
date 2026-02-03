@@ -38,23 +38,20 @@ export async function createAiAlpha(
   code2fa,
   name,
   context,
-  dbName,
-  queueId,
-  apiKey,
+  clientIp, clientPort, unidade_negocio, apiKey, queueId
 ) {
-  console.log('Primeira req de login');
+
   const loginData = await loginInstance(instance, username, password, code2fa);
   
   // 1. Cria a IA em branco para pegar o ID
   const aiData = await createAi(instance, loginData.token);
+  const iaId = aiData.id;
 
   // 2. Roda as funções auxiliares (IVRs)
   const ivrIds = await alpha7Functions(
     instance,
     loginData.token,
-    dbName,
-    queueId,
-    apiKey,
+    clientIp, clientPort, unidade_negocio, apiKey, queueId, iaId
   );
 
   // 3. Carrega o Template da IA configurada
@@ -63,8 +60,9 @@ export async function createAiAlpha(
     id: aiData.id,
     signaturename: name,
     context: context || 'Você é um assistente...', // Fallback se context for null
-    preautomationId: ivrIds.adicionaItemId,
-    automationId: ivrIds.envioItemsId
+    preProcessId: ivrIds.preProcessId,
+    FiltraProdutoItemId: ivrIds.FiltraProdutoItemId,
+    BuscaItensId: ivrIds.BuscaItensId,
   });
 
   // O payload do template não tem o ID da IA criado no passo 1, precisamos injetar ou garantir que o updateItem use o ID da URL/Body

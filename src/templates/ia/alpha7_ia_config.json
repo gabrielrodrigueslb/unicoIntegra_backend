@@ -1,5 +1,5 @@
 {
-  "name": "IA Vendas requisição",
+  "name": "Alpha7 - {{signaturename}}",
   "internaldescription": "",
   "signaturename": "{{signaturename}}",
   "type": 11,
@@ -7,25 +7,36 @@
   "kbdescription": "",
   "condenseddescription": "",
   "condensedkbdescription": "",
-  "preautomation": "{{preautomationId}}",
+  "maxrealtimeduration":120,
+  
+  "preautomation": "{{preProcessId}}",
   "postautomation": 0,
-  "waitfornewmsgs": 4,
-  "msgslimit": 100,
+  "waitfornewmsgs": 2,
+  "msgslimit": 200,
   "functions": [
     {
-      "id": "busca_produtos",
-      "name": "busca_produtos",
+      "id":"filtra_produtos",
+         "name":"filtra_produtos",
       "attrs": [
         {
-          "key": "produto",
+          "key": "produto_amplo",
           "type": 0,
           "required": true,
-          "description": "Nome buscável do produto. Ex.: quero um dipirona\"=\"dipirona\" "
+          "description": "Nome amplo do produto, ex : \"Dipirona\" ao inves de \"DIpirona gotas 1g\""
         }
       ],
-      "automation": {{automationId}},
-      "description": ""
-    }
+      "automation": {{FiltraProdutoItemId}},
+      "description": "Le uma lista ampla dos produtos para buscar por produtos mais especificos com a pergunta correta"
+    },
+      {
+         "id":"busca_produtos",
+         "name":"busca_produtos",
+         "attrs":[
+            
+         ],
+         "automation":{{BuscaItensId}},
+         "description":"Busca produtos de forma mais especifica com base na lista previamente fornecida "
+      }
   ],
   "exittags": [
     "atendente"
@@ -33,7 +44,14 @@
   "faqs": [],
   "faqgroups": [],
   "lookinproducts": 0,
+  "productstopk":6,
   "usebuttons": 0,
+  "processpdffiles":0,
+   "processaudiofiles":0,
+   "processvideofiles":0,
+   "processimagefiles":0,
+   "enablelangfuse":0,
+   "transferresult":0,
   "multiplemessasgesreply": 0,
   "allowdirectmessage": 0,
   "explanationmessages": 0,

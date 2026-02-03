@@ -4,9 +4,7 @@ import { loadAndParseTemplate } from './TemplateService.js';
 export async function alpha7Functions(
   instance,
   token,
-  dbName,
-  queueId,
-  apiKey,
+  clientIp, clientPort, unidade_negocio, apiKey, queueId, iaId
 ) {
   // Configuração do Header de Autorização (para a requisição de POST atual)
   const axiosConfig = {
@@ -22,7 +20,10 @@ export async function alpha7Functions(
       instanciaDoCliente: instance,
       queueIdCliente: queueId,
       apiKeyCliente: apiKey,
-      dbNameCliente: dbName,
+      clientIpCliente: clientIp,
+      clientPortCliente: clientPort,
+      unidade_negocio: unidade_negocio,
+      iaId: iaId
     };
 
     // =====================================================================
@@ -46,18 +47,18 @@ export async function alpha7Functions(
     // PASSO 2: Instalar "Adiciona Item"
     // Dependências: instanciaDoCliente, queueIdCliente, apiKeyCliente
     // =====================================================================
-    console.log('--- Passo 2: Adiciona Item ---');
-    const payloadAdiciona = await loadAndParseTemplate('alpha7_adiciona_item.json', commonVars);
+    console.log('--- Passo 2: Filtra itens ---');
+    const payloadFiltraProduto = await loadAndParseTemplate('alpha7_filtra_produto.json', commonVars);
 
-    const resAdiciona = await axios.post(
+    const resFiltraProduto = await axios.post(
       `${instance}/ivrs/`,
-      payloadAdiciona,
+      payloadFiltraProduto,
       axiosConfig,
     );
 
-    if (!resAdiciona.data?.id) throw new Error('Falha ao criar Adiciona Item');
-    const adicionaItemId = resAdiciona.data.id;
-    console.log(`Adiciona Item criado. ID: ${adicionaItemId}`);
+    if (!resFiltraProduto.data?.id) throw new Error('Falha ao criar FiltraProduto');
+    const FiltraProdutoItemId = resFiltraProduto.data.id;
+    console.log(`FiltraProduto criado. ID: ${FiltraProdutoItemId}`);
 
     // =====================================================================
     // PASSO 3: Instalar "Envio de Itens"
@@ -66,23 +67,95 @@ export async function alpha7Functions(
     console.log('--- Passo 3: Envio de Itens ---');
 
     // Cria o objeto final mesclando as comuns com o ID gerado dinamicamente
-    const envioItemsVars = {
+    const buscaItensItemsVars = {
       ...commonVars,
       idDownloadImage: idDownloadImage
     };
 
     // Atenção ao nome do arquivo: mantive conforme seu upload anterior
-    const payloadEnvio = await loadAndParseTemplate('alpha7_envio_items.json.json', envioItemsVars);
+    const payloadBuscaItens = await loadAndParseTemplate('alpha7_busca_itens.json', buscaItensItemsVars);
 
-    const resEnvio = await axios.post(
+    const resBuscaItens = await axios.post(
       `${instance}/ivrs/`,
-      payloadEnvio,
+      payloadBuscaItens,
       axiosConfig,
     );
 
-    if (!resEnvio.data?.id) throw new Error('Falha ao criar Envio de Itens');
-    const envioItemsId = resEnvio.data.id;
-    console.log(`Envio de Itens criado. ID: ${envioItemsId}`);
+    if (!resBuscaItens.data?.id) throw new Error('Falha ao criar BuscaItens de Itens');
+    const BuscaItensId = resBuscaItens.data.id;
+    console.log(`BuscaItens de Itens criado. ID: ${BuscaItensId}`);
+
+    // =====================================================================
+    // PASSO 4: Instalar "Ura IA"
+    // Dependências: iaId
+    // =====================================================================
+    console.log('--- Passo 4: URA IA ---');
+
+    // Cria o objeto final mesclando as comuns com o ID gerado dinamicamente
+    const uraIaVars = {
+      ...commonVars,
+    };
+
+    // Atenção ao nome do arquivo: mantive conforme seu upload anterior
+    const payloadUraIa = await loadAndParseTemplate('ura_ia.json', uraIaVars);
+
+    const resUraIa = await axios.post(
+      `${instance}/ivrs/`,
+      payloadUraIa,
+      axiosConfig,
+    );
+
+    if (!resUraIa.data?.id) throw new Error('Falha ao criar Ura da IA');
+    const UraIaId = resUraIa.data.id;
+    console.log(`Ura da foi criada. ID: ${UraIaId}`);
+
+
+    // =====================================================================
+    // PASSO 5: Instalar "Ura - teste AB"
+    // Dependências: UraIaId
+    // =====================================================================
+    console.log('--- Passo 5: URA IA - AB ---');
+
+    // Cria o objeto final mesclando as comuns com o ID gerado dinamicamente
+    const uraIaAbVars = {
+      ...commonVars,
+      UraIaId: UraIaId
+    };
+
+    // Atenção ao nome do arquivo: mantive conforme seu upload anterior
+    const payloadUraIaAb = await loadAndParseTemplate('ura_ia_ab.json', uraIaAbVars);
+
+    const resUraIaAb = await axios.post(
+      `${instance}/ivrs/`,
+      payloadUraIaAb,
+      axiosConfig,
+    );
+
+    if (!resUraIaAb.data?.id) throw new Error('Falha ao criar Ura da IA - AB');
+    const UraIaAbId = resUraIaAb.data.id;
+    console.log(`Ura da IA - AB foi criada. ID: ${UraIaAbId}`);
+
+
+    // =====================================================================
+    // PASSO 6: Instalar "Ura - teste AB"
+    // Dependências: UraIaId
+    // =====================================================================
+    console.log('--- Passo 6: Pré processamento ---');
+
+
+    // Atenção ao nome do arquivo: mantive conforme seu upload anterior
+    const payloadPreProcess = await loadAndParseTemplate('ai_pre_processamento.json', commonVars);
+
+    const resPreProcess = await axios.post(
+      `${instance}/ivrs/`,
+      payloadPreProcess,
+      axiosConfig,
+    );
+
+    if (!resPreProcess.data?.id) throw new Error('Falha ao criar Ura da IA - AB');
+    const preProcessId = resPreProcess.data.id;
+    console.log(`Ura da IA - AB foi criada. ID: ${preProcessId}`);
+
 
     // =====================================================================
     // RETORNO FINAL
@@ -90,8 +163,11 @@ export async function alpha7Functions(
     return {
       success: true,
       downloadImageId: idDownloadImage,
-      adicionaItemId: adicionaItemId,
-      envioItemsId: envioItemsId,
+      FiltraProdutoItemId: FiltraProdutoItemId,
+      BuscaItensId: BuscaItensId,
+      UraIaId: UraIaId,
+      UraIaAbId: UraIaAbId,
+      preProcessId: preProcessId
     };
 
   } catch (error) {

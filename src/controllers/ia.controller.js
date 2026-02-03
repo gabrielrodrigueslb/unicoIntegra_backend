@@ -10,9 +10,7 @@ export async function createAiAlphaController(req, res) {
       password,
       name,
       context,
-      dbName,
-      queueId,
-      apiKey,
+  clientIp, clientPort, unidade_negocio, apiKey, queueId,
       code,
     } = req.body;
 
@@ -37,11 +35,6 @@ export async function createAiAlphaController(req, res) {
         .status(400)
         .json({ message: 'O campo "name" (signaturename) é obrigatório' });
     }
-    if (!dbName) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "dbName" é obrigatório' });
-    }
     if (!queueId) {
       return res
         .status(400)
@@ -64,9 +57,7 @@ export async function createAiAlphaController(req, res) {
       code,
       name,
       context,
-      dbName,
-      queueId,
-      apiKey,
+  clientIp, clientPort, unidade_negocio, apiKey, queueId
     );
     const currentUser = username || 'Sistema';
     await createLogService(currentUser, `Criou a IA do alpha 7 - ${name}`, instance);

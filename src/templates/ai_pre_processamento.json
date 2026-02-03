@@ -2,7 +2,7 @@
    "name":"Pré processamento",
    "type":2,
    "version":1,
-   "initialtext":"a95510d90",
+   "initialtext":"a5538fc90",
    "description":null,
    "listitems":"[]",
    "options": "[{\"id\":\"a5538fc90\",\"type\":11,\"x\":717,\"y\":61,\"info\":\"\",\"config\":{\"nextElementId\":\"\",\"value\":\"{{message_file.file_id}}\",\"options\":[{\"id\":\"a6d396550\",\"conditionValue\":\"0\",\"conditionArray\":[\"Nova condição\"],\"conditionOperator\":\">\",\"nextElementId\":\"a77b36ee0\"}]},\"configured\":true},{\"id\":\"a77b36ee0\",\"type\":79,\"x\":586,\"y\":252,\"info\":\"\",\"config\":{\"model\":3,\"fileId\":\"{{message_file.file_id}}\",\"instruction\":\"transcreva o conteudo do arquivo explicando o que contem nele, trazendo sentido para uma conversa de atendimento na farmacia\",\"includeAllMessages\":true,\"resultVariableName\":\"ai_result\",\"nextElementId\":\"a8a7538b0\",\"outputAsJson\":true},\"configured\":true},{\"id\":\"a8a7538b0\",\"type\":3,\"x\":809,\"y\":253,\"info\":\"\",\"config\":{\"nextElementId\":\"a99720b40\",\"text\":\"Traduzindo documento {{ai_result}}\",\"fileChooseType\":0,\"fileId\":\"\"},\"configured\":true},{\"id\":\"a99720b40\",\"type\":78,\"x\":793,\"y\":363,\"info\":\"\",\"config\":{\"context\":\"Dados transcritos do arquivo enviado pelo cliente: {{ai_result}} \\n\\n\\n\",\"nextElementId\":\"\"},\"configured\":true}]",
