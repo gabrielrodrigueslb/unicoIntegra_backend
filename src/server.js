@@ -1,0 +1,198 @@
+import express from 'express';
+import cors from 'cors';
+import fs from 'fs-extra';
+import path from 'path';
+import 'dotenv/config';
+import { fileURLToPath } from 'url';
+import { exec } from 'child_process';
+import archiver from 'archiver';
+import { rimraf } from 'rimraf';
+import installingRoutes from './routes/installing.routes.js'
+import createAiRoutes from './routes/ai.routes.js'
+import databaseRoutes from './routes/database.routes.js'
+import newsRoutes from './routes/news.routes.js';
+import logsRoutes from './routes/logs.routes.js';
+import { ensureNewsTableExists } from './services/news.services.js';
+import helmet from 'helmet';
+
+
+// --- Lógica para recriar o __dirname em ES Modules ---
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+
+const app = express();
+const PORT = 4000;
+
+const allowedOrigins = [
+  'http://localhost:5173', // front dev
+  'http://localhost:3000',
+  'https://unico-integra.vercel.app' // produção
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Permite requisições sem 'origin' (como Postman ou Apps Mobile)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'A política de CORS deste site não permite acesso desta origem.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
+  credentials: true // Se precisar de cookies/sessão no futuro
+}));
+
+app.use(helmet({
+  crossOriginResourcePolicy: false, // <--- IMPORTANTE: Permite que outros domínios carreguem recursos
+}));
+ 
+
+app.use(express.json());
+
+/**
+ * Rota principal para gerar o aplicativo
+ */
+app.post('/api/generate', async (req, res) => {
+  console.log('Requisição de geração recebida com os dados:', req.body);
+
+  const clientData = req.body;
+  const buildId = Date.now();
+  const buildPath = path.join(__dirname, '..', 'builds-temporarios', `${buildId}`);
+  const sourceAppPath = path.join(__dirname, '..', 'app-Alpha7');
+  const outputZipPath = path.join(
+    __dirname, '..',
+    'builds-temporarios',
+    `app-cliente-${buildId}.zip`,
+  );
+
+  try {
+    // 1. Copia a aplicação fonte para uma pasta de build temporária
+    console.log(`Copiando app fonte para ${buildPath}`);
+    await fs.copy(sourceAppPath, buildPath);
+
+    // 2. Modifica os arquivos de configuração DENTRO da pasta temporária
+    console.log('Modificando arquivos de configuração...');
+    const dbConfigPath = path.join(buildPath, 'data', 'db-config.json');
+    const dbConfig = await fs.readJson(dbConfigPath);
+    dbConfig.db.user = clientData.db_user;
+    dbConfig.db.host = clientData.db_host;
+    dbConfig.db.database = clientData.db_database;
+    dbConfig.db.password = clientData.db_password;
+    await fs.writeJson(dbConfigPath, dbConfig, { spaces: 4 });
+
+    const accessKeyPath = path.join(buildPath, 'data', 'access_key.json');
+    const accessKey = { key: clientData.access_key };
+    await fs.writeJson(accessKeyPath, accessKey, { spaces: 4 });
+
+    // 3. Executa o 'pkg' para criar os executáveis dentro da pasta de build
+    console.log("Executando o comando 'pkg'...");
+    const pkgCommand = [
+      `cd ${buildPath}`,
+      'npm install',
+      'npx pkg . --targets node18-win-x64,node18-linux-x64,node18-macos-x64 --output app-cliente',
+    ].join(' && ');
+
+    await new Promise((resolve, reject) => {
+      exec(
+        pkgCommand,
+        { /* shell: 'cmd.exe', */ timeout: 300000 },
+        (error, stdout, stderr) => {
+          console.log('--- Saída do Processo (stdout) ---');
+          console.log(stdout);
+          console.log('--- Saída de Erro do Processo (stderr) ---');
+          console.log(stderr);
+          if (error) {
+            return reject(
+              new Error(
+                `Falha ao executar o pkg. Mensagem: ${error.message}. Stderr: ${
+                  stderr || 'vazio'
+                }`,
+              ),
+            );
+          }
+          console.log("Comando 'pkg' executado com sucesso.");
+          resolve(stdout);
+        },
+      );
+    });
+
+    // 4. Cria o arquivo ZIP com todos os arquivos do projeto modificado
+    console.log(`Criando arquivo ZIP em ${outputZipPath}`);
+    await new Promise((resolve, reject) => {
+      const output = fs.createWriteStream(outputZipPath);
+      const archive = archiver('zip', { zlib: { level: 9 } });
+      output.on('close', () => {
+        console.log(
+          `ZIP criado com sucesso. Total de bytes: ${archive.pointer()}`,
+        );
+        resolve();
+      });
+      archive.on('error', (err) => reject(err));
+      archive.pipe(output);
+
+      // ALTERAÇÃO: Adiciona a pasta de build dentro de uma pasta raiz no ZIP
+      archive.directory(buildPath, 'app-Alpha7-configurado');
+
+      archive.finalize();
+    });
+
+    // 5. Envia o ZIP para download e limpa os arquivos APÓS o envio
+    res.download(
+      outputZipPath,
+      `app-cliente-${clientData.nome_cliente || buildId}.zip`,
+      async (err) => {
+        if (err) {
+          console.error('Erro ao enviar o arquivo para o cliente:', err);
+        } else {
+          console.log('Arquivo ZIP enviado com sucesso para o cliente.');
+        }
+
+        // Limpeza é feita aqui, DENTRO do callback do download.
+        console.log('Iniciando limpeza dos arquivos temporários...');
+        await rimraf(buildPath); // Apaga a pasta de build inteira
+        console.log('Limpeza concluída.');
+      },
+    );
+  } catch (error) {
+    console.error('Ocorreu um erro no processo de geração:', error);
+    if (await fs.pathExists(buildPath)) {
+      console.log(`Limpando pasta de build após erro: ${buildPath}`);
+      await rimraf(buildPath);
+    }
+    if (!res.headersSent) {
+      res
+        .status(500)
+        .json({ message: 'Falha na geração', error: error.message });
+    }
+  }
+});
+app.use('/api/databases', databaseRoutes)
+app.use('/install', installingRoutes)
+app.use('/api/ia', createAiRoutes)
+app.use('/api/news', newsRoutes);
+app.use('/api', logsRoutes); 
+
+
+const HOST = process.env.HOST || '127.0.0.1'; 
+
+
+
+// 3. Inicialize o banco antes de subir o servidor
+ensureNewsTableExists().then(() => {
+  app.listen(PORT, HOST, () => {
+  console.log(`Servidor Gerador rodando em http://${HOST}:${PORT}`);
+}).on('error', (err) => {
+
+  console.error('--- FALHA AO INICIAR O SERVIDOR ---');
+  console.error(err.message);
+  console.error(err.stack);
+  process.exit(1); // Força um crash "com erro"
+});
+
+});
+
+

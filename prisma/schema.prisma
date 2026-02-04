@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["sistema"]
+}
+
+model news {
+  id          Int       @id @default(autoincrement())
+  title       String    @db.VarChar(255)
+  description String
+  type        String    @db.VarChar(50)
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  @@schema("sistema")
+}
+
+model SystemLog {
+  id        Int      @id @default(autoincrement())
+  userName  String   @db.VarChar(255)
+  action    String
+  target    String?
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+
+  @@map("system_logs")
+  @@schema("sistema")
+
+  @@index([createdAt]) // Acelera muito o filtro por data e ordenação
+  @@index([userName])  // Acelera busca por nome
+}

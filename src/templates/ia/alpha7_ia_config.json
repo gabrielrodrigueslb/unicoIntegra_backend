@@ -1,0 +1,61 @@
+{
+  "name": "Alpha7 - {{signaturename}}",
+  "internaldescription": "",
+  "signaturename": "{{signaturename}}",
+  "type": 11,
+  "description": "{{context}}",
+  "kbdescription": "",
+  "condenseddescription": "",
+  "condensedkbdescription": "",
+  "maxrealtimeduration":120,
+  
+  "preautomation": "{{preProcessId}}",
+  "postautomation": 0,
+  "waitfornewmsgs": 2,
+  "msgslimit": 200,
+  "functions": [
+    {
+      "id":"filtra_produtos",
+         "name":"filtra_produtos",
+      "attrs": [
+        {
+          "key": "produto_amplo",
+          "type": 0,
+          "required": true,
+          "description": "Nome amplo do produto, ex : \"Dipirona\" ao inves de \"DIpirona gotas 1g\""
+        }
+      ],
+      "automation": {{FiltraProdutoItemId}},
+      "description": "Le uma lista ampla dos produtos para buscar por produtos mais especificos com a pergunta correta"
+    },
+      {
+         "id":"busca_produtos",
+         "name":"busca_produtos",
+         "attrs":[
+            
+         ],
+         "automation":{{BuscaItensId}},
+         "description":"Busca produtos de forma mais especifica com base na lista previamente fornecida "
+      }
+  ],
+  "exittags": [
+    "atendente"
+  ],
+  "faqs": [],
+  "faqgroups": [],
+  "lookinproducts": 0,
+  "productstopk":6,
+  "usebuttons": 0,
+  "processpdffiles":0,
+   "processaudiofiles":0,
+   "processvideofiles":0,
+   "processimagefiles":0,
+   "enablelangfuse":0,
+   "transferresult":0,
+  "multiplemessasgesreply": 0,
+  "allowdirectmessage": 0,
+  "explanationmessages": 0,
+  "enablelog": 0,
+  "optimizedescription": 0,
+  "files": []
+}
