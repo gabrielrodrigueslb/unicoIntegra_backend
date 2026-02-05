@@ -109,6 +109,7 @@ export async function createAiVannon(
   name,
   context,
   clientEndpoint,
+  clientName,
   apiKey,
   queueId,
   cepLoja
@@ -124,10 +125,11 @@ export async function createAiVannon(
     instance,
     loginData.token,
     clientEndpoint,
+    clientName,
     apiKey,
     queueId,
-    cepLoja,
     iaId,
+    cepLoja,
   );
 
   // 3. Carrega o Template da IA configurada

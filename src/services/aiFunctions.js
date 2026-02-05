@@ -2,19 +2,21 @@ import axios from 'axios';
 import { loadAndParseTemplate } from './TemplateService.js';
 
 function getDominio(url) {
-  const normalized = url.startsWith('http')
-    ? url
-    : `https://${url}`
+  const normalized = url.startsWith('http') ? url : `https://${url}`;
 
-  const { hostname } = new URL(normalized)
-  return hostname.split('.')[0]
+  const { hostname } = new URL(normalized);
+  return hostname.split('.')[0];
 }
-
 
 export async function alpha7Functions(
   instance,
   token,
-  clientIp, clientPort, unidade_negocio, apiKey, queueId, iaId
+  clientIp,
+  clientPort,
+  unidade_negocio,
+  apiKey,
+  queueId,
+  iaId,
 ) {
   // Configuração do Header de Autorização (para a requisição de POST atual)
   const axiosConfig = {
@@ -33,7 +35,7 @@ export async function alpha7Functions(
       clientIpCliente: clientIp,
       clientPortCliente: clientPort,
       unidade_negocio: unidade_negocio,
-      iaId: iaId
+      iaId: iaId,
     };
 
     // =====================================================================
@@ -41,7 +43,10 @@ export async function alpha7Functions(
     // Dependências: instanciaDoCliente, queueIdCliente, apiKeyCliente
     // =====================================================================
     console.log('--- Passo 1: Download Image ---');
-    const payloadDownload = await loadAndParseTemplate('alpha7Download.json', commonVars);
+    const payloadDownload = await loadAndParseTemplate(
+      'alpha7Download.json',
+      commonVars,
+    );
 
     const resDownload = await axios.post(
       `${instance}/ivrs/`,
@@ -58,7 +63,10 @@ export async function alpha7Functions(
     // Dependências: instanciaDoCliente, queueIdCliente, apiKeyCliente
     // =====================================================================
     console.log('--- Passo 2: Filtra itens ---');
-    const payloadFiltraProduto = await loadAndParseTemplate('alpha7_filtra_produto.json', commonVars);
+    const payloadFiltraProduto = await loadAndParseTemplate(
+      'alpha7_filtra_produto.json',
+      commonVars,
+    );
 
     const resFiltraProduto = await axios.post(
       `${instance}/ivrs/`,
@@ -66,7 +74,8 @@ export async function alpha7Functions(
       axiosConfig,
     );
 
-    if (!resFiltraProduto.data?.id) throw new Error('Falha ao criar FiltraProduto');
+    if (!resFiltraProduto.data?.id)
+      throw new Error('Falha ao criar FiltraProduto');
     const FiltraProdutoItemId = resFiltraProduto.data.id;
     console.log(`FiltraProduto criado. ID: ${FiltraProdutoItemId}`);
 
@@ -79,11 +88,14 @@ export async function alpha7Functions(
     // Cria o objeto final mesclando as comuns com o ID gerado dinamicamente
     const buscaItensItemsVars = {
       ...commonVars,
-      idDownloadImage: idDownloadImage
+      idDownloadImage: idDownloadImage,
     };
 
     // Atenção ao nome do arquivo: mantive conforme seu upload anterior
-    const payloadBuscaItens = await loadAndParseTemplate('alpha7_busca_itens.json', buscaItensItemsVars);
+    const payloadBuscaItens = await loadAndParseTemplate(
+      'alpha7_busca_itens.json',
+      buscaItensItemsVars,
+    );
 
     const resBuscaItens = await axios.post(
       `${instance}/ivrs/`,
@@ -91,7 +103,8 @@ export async function alpha7Functions(
       axiosConfig,
     );
 
-    if (!resBuscaItens.data?.id) throw new Error('Falha ao criar BuscaItens de Itens');
+    if (!resBuscaItens.data?.id)
+      throw new Error('Falha ao criar BuscaItens de Itens');
     const BuscaItensId = resBuscaItens.data.id;
     console.log(`BuscaItens de Itens criado. ID: ${BuscaItensId}`);
 
@@ -119,7 +132,6 @@ export async function alpha7Functions(
     const UraIaId = resUraIa.data.id;
     console.log(`Ura da foi criada. ID: ${UraIaId}`);
 
-
     // =====================================================================
     // PASSO 5: Instalar "Ura - teste AB"
     // Dependências: UraIaId
@@ -129,11 +141,14 @@ export async function alpha7Functions(
     // Cria o objeto final mesclando as comuns com o ID gerado dinamicamente
     const uraIaAbVars = {
       ...commonVars,
-      UraIaId: UraIaId
+      UraIaId: UraIaId,
     };
 
     // Atenção ao nome do arquivo: mantive conforme seu upload anterior
-    const payloadUraIaAb = await loadAndParseTemplate('ura_ia_ab.json', uraIaAbVars);
+    const payloadUraIaAb = await loadAndParseTemplate(
+      'ura_ia_ab.json',
+      uraIaAbVars,
+    );
 
     const resUraIaAb = await axios.post(
       `${instance}/ivrs/`,
@@ -145,16 +160,17 @@ export async function alpha7Functions(
     const UraIaAbId = resUraIaAb.data.id;
     console.log(`Ura da IA - AB foi criada. ID: ${UraIaAbId}`);
 
-
     // =====================================================================
     // PASSO 6: Instalar "Ura - teste AB"
     // Dependências: UraIaId
     // =====================================================================
     console.log('--- Passo 6: Pré processamento ---');
 
-
     // Atenção ao nome do arquivo: mantive conforme seu upload anterior
-    const payloadPreProcess = await loadAndParseTemplate('ai_pre_processamento.json', commonVars);
+    const payloadPreProcess = await loadAndParseTemplate(
+      'ai_pre_processamento.json',
+      commonVars,
+    );
 
     const resPreProcess = await axios.post(
       `${instance}/ivrs/`,
@@ -162,10 +178,10 @@ export async function alpha7Functions(
       axiosConfig,
     );
 
-    if (!resPreProcess.data?.id) throw new Error('Falha ao criar Ura da IA - AB');
+    if (!resPreProcess.data?.id)
+      throw new Error('Falha ao criar Ura da IA - AB');
     const preProcessId = resPreProcess.data.id;
     console.log(`Ura da IA - AB foi criada. ID: ${preProcessId}`);
-
 
     // =====================================================================
     // RETORNO FINAL
@@ -177,9 +193,8 @@ export async function alpha7Functions(
       BuscaItensId: BuscaItensId,
       UraIaId: UraIaId,
       UraIaAbId: UraIaAbId,
-      preProcessId: preProcessId
+      preProcessId: preProcessId,
     };
-
   } catch (error) {
     console.error(
       'Erro crítico em alpha7Functions:',
@@ -192,7 +207,12 @@ export async function alpha7Functions(
 export async function vannonFunctions(
   instance,
   token,
-  clientEndpoint, apiKey, queueId, iaId, cepLoja
+  clientEndpoint,
+  clientName,
+  apiKey,
+  queueId,
+  iaId,
+  cepLoja,
 ) {
   const axiosConfig = {
     headers: {
@@ -209,14 +229,25 @@ export async function vannonFunctions(
       apiKeyCliente: apiKey,
       clientEndpoint: clientEndpoint,
       iaId: iaId,
-      cepLoja:cepLoja
+      cepLoja: cepLoja,
+    };
+    const vannonInstallVars = {
+      clientEndpoint: clientEndpoint,
+      clientName: clientName,
+      clientEndpointUnico: getDominio(instance),
+      clientQueueId: queueId,
+      iaId: iaId,
+      clientApiKey: apiKey,
     };
 
     // =====================================================================
     // PASSO 1: Instalar "download de imagens IA Vannon"
     // =====================================================================
     console.log('--- Passo 1: Download Image ---');
-    const payloadDownload = await loadAndParseTemplate('ia/vannon/download_de_imagens_IA_Vannon.json');
+    const payloadDownload = await loadAndParseTemplate(
+      'ia/vannon/download_de_imagens_IA_Vannon.json',
+      vannonInstallVars,
+    );
 
     const resDownload = await axios.post(
       `${instance}/ivrs/`,
@@ -233,7 +264,10 @@ export async function vannonFunctions(
     // Dependências: instanciaDoCliente, queueIdCliente, apiKeyCliente
     // =====================================================================
     console.log('--- Passo 2: pré processamento ---');
-    const payloadpreProcess = await loadAndParseTemplate('ia/vannon/pre_processamento.json');
+    const payloadpreProcess = await loadAndParseTemplate(
+      'ia/vannon/pre_processamento.json',
+      vannonInstallVars,
+    );
 
     const resPreProcess = await axios.post(
       `${instance}/ivrs/`,
@@ -241,7 +275,8 @@ export async function vannonFunctions(
       axiosConfig,
     );
 
-    if (!resPreProcess.data?.id) throw new Error('Falha ao criar Pré processamento');
+    if (!resPreProcess.data?.id)
+      throw new Error('Falha ao criar Pré processamento');
     const preProcessId = resPreProcess.data.id;
     console.log(`Pré processamento criado. ID: ${preProcessId}`);
 
@@ -253,11 +288,15 @@ export async function vannonFunctions(
 
     // Cria o objeto final mesclando as comuns com o ID gerado dinamicamente
     const buscaItensItemsVars = {
-      idDownloadImage: idDownloadImage
+      ...vannonInstallVars,
+      idDownloadImage: idDownloadImage,
     };
 
     // Atenção ao nome do arquivo: mantive conforme seu upload anterior
-    const payloadEnvioItens = await loadAndParseTemplate('ia/vannon/envio_itens_vannon.json', buscaItensItemsVars);
+    const payloadEnvioItens = await loadAndParseTemplate(
+      'ia/vannon/envio_itens_vannon.json',
+      buscaItensItemsVars,
+    );
 
     const resEnvioItens = await axios.post(
       `${instance}/ivrs/`,
@@ -265,7 +304,8 @@ export async function vannonFunctions(
       axiosConfig,
     );
 
-    if (!resEnvioItens.data?.id) throw new Error('Falha ao criar envioItens de Itens');
+    if (!resEnvioItens.data?.id)
+      throw new Error('Falha ao criar envioItens de Itens');
     const envioItensId = resEnvioItens.data.id;
     console.log(`envioItens criado. ID: ${envioItensId}`);
 
@@ -275,7 +315,9 @@ export async function vannonFunctions(
     console.log('--- Passo 4: Envio de Itens ---');
 
     // Atenção ao nome do arquivo: mantive conforme seu upload anterior
-    const payloadTransfere = await loadAndParseTemplate('ia/vannon/transfere_para_atendente_encerrar.json')
+    const payloadTransfere = await loadAndParseTemplate(
+      'ia/vannon/transfere_para_atendente_encerrar.json',
+    );
 
     const resTransfere = await axios.post(
       `${instance}/ivrs/`,
@@ -283,7 +325,8 @@ export async function vannonFunctions(
       axiosConfig,
     );
 
-    if (!resTransfere.data?.id) throw new Error('Falha ao criar Transfererir para atendente');
+    if (!resTransfere.data?.id)
+      throw new Error('Falha ao criar Transfererir para atendente');
     const transfereId = resTransfere.data.id;
     console.log(`Transfererir para atendente criado. ID: ${transfereId}`);
 
@@ -295,11 +338,16 @@ export async function vannonFunctions(
 
     // Cria o objeto final mesclando as comuns com o ID gerado dinamicamente
     const uraIaAbVars = {
-      cepLoja: cepLoja
+      ...vannonInstallVars,
+      iaId: iaId,
+      cepLoja: cepLoja,
     };
 
     // Atenção ao nome do arquivo: mantive conforme seu upload anterior
-    const payloadUraIaAb = await loadAndParseTemplate('ia/vannon/ura_vannon.json', uraIaAbVars);
+    const payloadUraIaAb = await loadAndParseTemplate(
+      'ia/vannon/ura_vannon.json',
+      uraIaAbVars,
+    );
 
     const resUraIaAb = await axios.post(
       `${instance}/ivrs/`,
@@ -309,8 +357,7 @@ export async function vannonFunctions(
 
     if (!resUraIaAb.data?.id) throw new Error('Falha ao criar Ura da IA - AB');
     const UraIaId = resUraIaAb.data.id;
-    console.log(`Ura da IA - AB foi criada. ID: ${UraIaAbId}`);
-
+    console.log(`Ura da IA - AB foi criada. ID: ${UraIaId}`);
 
     // =====================================================================
     // PASSO 6: Instalar "Ura - teste AB"
@@ -320,16 +367,17 @@ export async function vannonFunctions(
 
     // Cria o objeto final mesclando as comuns com o ID gerado dinamicamente
     const uraAbVars = {
-      ...commonVars,
+      ...vannonInstallVars,
       UraIaId: UraIaId,
-      clientEndpointUnico: getDominio(instance),
-      clientEndpoint: clientEndpoint
-
-
+      idDownloadImage: idDownloadImage,
+      clientName: clientName,
     };
 
     // Atenção ao nome do arquivo: mantive conforme seu upload anterior
-    const payloadUraAb = await loadAndParseTemplate('ia/vannon/ura_ab.json', uraAbVars);
+    const payloadUraAb = await loadAndParseTemplate(
+      'ia/vannon/ura_ab.json',
+      uraAbVars,
+    );
 
     const resUraAb = await axios.post(
       `${instance}/ivrs/`,
@@ -348,13 +396,11 @@ export async function vannonFunctions(
       success: true,
       downloadImageId: idDownloadImage,
       preProcessId: preProcessId,
-      FiltraProdutoItemId:FiltraProdutoItemId,
       envioItensId: envioItensId,
       transfereId: transfereId,
       UraIaId: UraIaId,
-      UraAbId: UraAbId
+      UraAbId: UraAbId,
     };
-
   } catch (error) {
     console.error(
       'Erro crítico em alpha7Functions:',

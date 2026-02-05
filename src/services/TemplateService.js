@@ -6,10 +6,10 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function applyTemplate(content, vars) {
+function applyTemplate(content, vars = {}) {
   return content.replace(/{{(.*?)}}/g, (_, key) => {
     const k = key.trim();
-    const value = vars[k];
+    const value = vars?.[k];
 
     // Se o valor existe (não é undefined/null)
     if (value !== undefined && value !== null) {

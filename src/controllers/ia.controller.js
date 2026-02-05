@@ -98,7 +98,8 @@ export async function createAiVannonController(req, res) {
       apiKey,
       queueId,
       code,
-      cepLoja
+      cepLoja,
+      clientName
     } = req.body;
 
     // 2. Validar campos obrigatórios
@@ -145,6 +146,7 @@ export async function createAiVannonController(req, res) {
       name,
       context,
       clientEndpoint,
+      clientName,
       apiKey,
       queueId,
       cepLoja

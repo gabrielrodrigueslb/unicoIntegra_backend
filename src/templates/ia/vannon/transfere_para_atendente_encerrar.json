@@ -1,1 +1,15 @@
-{"name":"transfere_para_atendente_encerrar","initialtext":"a63422220","listitems":"[]","options":"[{\"id\":\"a63422220\",\"type\":3,\"x\":134,\"y\":115,\"info\":\"\",\"config\":{\"nextElementId\":\"a439fe990\",\"text\":\"RESUMO DO ATENDIMENTO\\n\\n\\n Nome cliente : {{assistant_nome_cliente}} \\nCpf cliente : {{assistant_cpf_cliente}} \\nEntrega : {{assistant_entrega}}\\nEndereço : {{assistant_endereco}}\\nCarrinho: {{mensagemCarrinho}}\",\"fileChooseType\":0,\"fileId\":\"\"},\"configured\":true},{\"id\":\"a439fe990\",\"type\":5,\"x\":353,\"y\":115,\"info\":\"\",\"config\":{\"destinationType\":0,\"destinationId\":\"\",\"filter\":[]},\"configured\":true}]","finishtext":"","files":[],"timeouttags":"[]","notfoundtext":null,"timeout":600,"timeoutaction":0,"buttons":"[]"}
+{
+  "type": 2,
+  "version": 1,
+  "name": "transfere_para_atendente_encerrar",
+  "initialtext": "a63422220",
+  "listitems": "[]",
+  "options": "[{\"id\":\"a63422220\",\"type\":3,\"x\":134,\"y\":115,\"info\":\"\",\"config\":{\"nextElementId\":\"a439fe990\",\"text\":\"RESUMO DO ATENDIMENTO\\n\\n\\n Nome cliente : {{assistant_nome_cliente}} \\nCpf cliente : {{assistant_cpf_cliente}} \\nEntrega : {{assistant_entrega}}\\nEndereço : {{assistant_endereco}}\\nCarrinho: {{mensagemCarrinho}}\",\"fileChooseType\":0,\"fileId\":\"\"},\"configured\":true},{\"id\":\"a439fe990\",\"type\":5,\"x\":353,\"y\":115,\"info\":\"\",\"config\":{\"destinationType\":0,\"destinationId\":\"\",\"filter\":[]},\"configured\":true}]",
+  "finishtext": "",
+  "files": [],
+  "timeouttags": "[]",
+  "notfoundtext": null,
+  "timeout": 600,
+  "timeoutaction": 0,
+  "buttons": "[]"
+}
