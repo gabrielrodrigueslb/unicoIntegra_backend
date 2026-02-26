@@ -1,0 +1,13 @@
+{
+  "id": {{id}},
+  "name": "{{name}}",
+  "signaturename": "{{signaturename}}",
+  "type": 11,
+  "description": "{{context}}",
+  "preautomation": {{preautomation}},
+  "postautomation": 0,
+  "waitfornewmsgs": 4,
+  "msgslimit": 100,
+  "functions": [],
+  "files": []
+}

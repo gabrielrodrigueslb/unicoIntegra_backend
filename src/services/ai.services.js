@@ -1,6 +1,8 @@
 import axios from 'axios';
 import loginInstance from './loginInstance.js';
 import { alpha7Functions, vannonFunctions } from './aiFunctions.js';
+import { loadAiTemplateFromDbOrFile } from './aiTemplateBase.services.js';
+import { createAiVersionSnapshot } from './aiVersion.services.js';
 import { loadAndParseTemplate } from './TemplateService.js'; // Importação nova
 
 export async function createAi(instance, token) {
@@ -64,14 +66,14 @@ export async function createAiAlpha(
 
   // 3. Carrega o Template da IA configurada
   // Note que passamos os IDs retornados pela alpha7Functions
-  const iaPayload = await loadAndParseTemplate('ia/alpha7_ia_config.json', {
+  const iaPayload = await loadAiTemplateFromDbOrFile('alpha7', {
     id: aiData.id,
     signaturename: name,
     context: context || 'Você é um assistente...', // Fallback se context for null
     preProcessId: ivrIds.preProcessId,
     FiltraProdutoItemId: ivrIds.FiltraProdutoItemId,
     BuscaItensId: ivrIds.BuscaItensId,
-  });
+  }, 'ia/alpha7_ia_config.json');
 
   // O payload do template não tem o ID da IA criado no passo 1, precisamos injetar ou garantir que o updateItem use o ID da URL/Body
   iaPayload.id = aiData.id;
@@ -91,6 +93,7 @@ export async function createAiAlpha(
       'IA Alpha7 configurada com sucesso!:',
       createAlphaAiResponse.data,
     );
+    await createAiVersionSnapshot(instance, iaPayload);
     return createAlphaAiResponse.data;
   } catch (error) {
     console.error(
@@ -134,14 +137,14 @@ export async function createAiVannon(
 
   // 3. Carrega o Template da IA configurada
   // Note que passamos os IDs retornados pela alpha7Functions
-  const iaPayload = await loadAndParseTemplate('ia/vannon/Vannon_ai_config.json', {
+  const iaPayload = await loadAiTemplateFromDbOrFile('vannon', {
     id: aiData.id,
     signaturename: name,
     context: context || 'Você é um assistente...', // Fallback se context for null
     preProcessId: ivrIds.preProcessId,
     envioItensId: ivrIds.envioItensId,
     transfereId: ivrIds.transfereId,
-  });
+  }, 'ia/vannon/Vannon_ai_config.json');
 
   // O payload do template não tem o ID da IA criado no passo 1, precisamos injetar ou garantir que o updateItem use o ID da URL/Body
   iaPayload.id = aiData.id;
@@ -161,6 +164,7 @@ export async function createAiVannon(
       'IA Vannon configurada com sucesso!:',
       createAlphaAiResponse.data,
     );
+    await createAiVersionSnapshot(instance, iaPayload);
     return createAlphaAiResponse.data;
   } catch (error) {
     console.error(
@@ -214,19 +218,17 @@ export async function createDefaultAi(
 
   // 3️⃣ Atualiza a IA com a automation (Aqui você pode criar outro template se quiser 'default_ia_config.json' ou manter inline se for simples)
   try {
-    const iaPayload = {
-      id: aiData.id,
-      name: `${name}`,
-      signaturename: name,
-      type: 11,
-      description: context,
-      preautomation: installResponse.data.id,
-      postautomation: 0,
-      waitfornewmsgs: 4,
-      msgslimit: 100,
-      functions: [],
-      files: [],
-    };
+    const iaPayload = await loadAiTemplateFromDbOrFile(
+      'atendimento',
+      {
+        id: aiData.id,
+        name: `${name}`,
+        signaturename: name,
+        context,
+        preautomation: installResponse.data.id,
+      },
+      'ia/default_atendimento_ia_config.json',
+    );
 
     const createAiResponse = await axios.post(
       `${instance}/assistants/updateItem`,
@@ -239,6 +241,7 @@ export async function createDefaultAi(
       },
     );
 
+    await createAiVersionSnapshot(instance, iaPayload);
     return createAiResponse.data;
   } catch (error) {
     console.error(

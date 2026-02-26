@@ -3,6 +3,42 @@ generator client {
   previewFeatures = ["multiSchema"]
 }
 
+model AiVersion {
+  id        Int      @id @default(autoincrement())
+  instance  String   @db.VarChar(255)
+  version   Int
+  payload   Json
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+
+  @@map("ai_versions")
+  @@schema("sistema")
+
+  @@unique([instance, version])
+  @@index([instance])
+  @@index([createdAt])
+}
+
+model AiTemplateBase {
+  id             Int      @id @default(autoincrement())
+  templateKey    String   @db.VarChar(100)
+  templateName   String   @db.VarChar(255)
+  version        Int
+  templateContent String
+  contentType    String   @default("json-template") @db.VarChar(50)
+  sourcePath     String?  @db.VarChar(255)
+  isCurrent      Boolean  @default(true)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime @updatedAt @db.Timestamp(6)
+
+  @@map("ai_template_bases")
+  @@schema("sistema")
+
+  @@unique([templateKey, version])
+  @@index([templateKey, isCurrent])
+  @@index([isCurrent])
+}
+
 datasource db {
   provider = "postgresql"
   schemas  = ["sistema"]

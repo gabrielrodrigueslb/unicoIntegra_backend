@@ -1,4 +1,9 @@
 import { createAiAlpha, createAiVannon, createDefaultAi } from '../services/ai.services.js';
+import {
+  listAiTemplateBases,
+  syncCurrentAiTemplatesToDb,
+} from '../services/aiTemplateBase.services.js';
+import { listAiVersions } from '../services/aiVersion.services.js';
 import { createLogService } from '../services/logs.services.js';
 
 export async function createAiAlphaController(req, res) {
@@ -226,6 +231,50 @@ export async function createAiController(req, res) {
     console.error('Erro ao criar IA:', error);
     res.status(500).json({
       message: 'Ocorreu um erro ao criar a IA.',
+      error: error.message,
+    });
+  }
+}
+
+export async function listAiVersionsController(req, res) {
+  try {
+    const { limit, latestOnly } = req.query;
+    const data = await listAiVersions({ limit, latestOnly });
+    return res.status(200).json({ data });
+  } catch (error) {
+    console.error('Erro ao listar IAs versionadas:', error);
+    return res.status(500).json({
+      message: 'Ocorreu um erro ao listar as IAs.',
+      error: error.message,
+    });
+  }
+}
+
+export async function listAiTemplatesController(req, res) {
+  try {
+    const { limit, currentOnly } = req.query;
+    const data = await listAiTemplateBases({ limit, currentOnly });
+    return res.status(200).json({ data });
+  } catch (error) {
+    console.error('Erro ao listar templates base de IA:', error);
+    return res.status(500).json({
+      message: 'Ocorreu um erro ao listar os templates base de IA.',
+      error: error.message,
+    });
+  }
+}
+
+export async function syncAiTemplatesController(req, res) {
+  try {
+    const data = await syncCurrentAiTemplatesToDb();
+    return res.status(200).json({
+      message: 'Templates base de IA sincronizados com sucesso.',
+      data,
+    });
+  } catch (error) {
+    console.error('Erro ao sincronizar templates base de IA:', error);
+    return res.status(500).json({
+      message: 'Ocorreu um erro ao sincronizar templates base de IA.',
       error: error.message,
     });
   }

@@ -22,4 +22,7 @@ router.post('/create-ai/alpha', aiController.createAiAlphaController);
 router.post('/create-ai/vannon', aiController.createAiVannonController);
 
 router.post('/create-ai', aiController.createAiController);
+router.get('/versions', aiController.listAiVersionsController);
+router.get('/templates', aiController.listAiTemplatesController);
+router.post('/templates/sync-current', aiController.syncAiTemplatesController);
 export default router;
