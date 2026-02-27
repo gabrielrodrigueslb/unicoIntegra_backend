@@ -127,16 +127,24 @@ function buildAiVersionKey(item) {
   return `${item.instance}::name::${fallbackName}`;
 }
 
-export async function listAiVersions({ limit = 200, latestOnly = true } = {}) {
+export async function listAiVersions({
+  limit = 200,
+  latestOnly = true,
+  instance,
+} = {}) {
   await ensureAiVersionsTableExists();
 
   const parsedLimit = Math.min(Math.max(Number(limit) || 50, 1), 500);
   const useLatestOnly = parseBooleanFlag(latestOnly, true);
+  const normalizedInstance =
+    typeof instance === 'string' && instance.trim() ? instance.trim() : null;
+  const where = normalizedInstance ? { instance: normalizedInstance } : undefined;
   const prismaTake = useLatestOnly
     ? Math.min(Math.max(parsedLimit * 10, parsedLimit), 5000)
     : parsedLimit;
 
   const rows = await prisma.aiVersion.findMany({
+    where,
     take: prismaTake,
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
   });

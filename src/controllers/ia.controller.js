@@ -238,8 +238,8 @@ export async function createAiController(req, res) {
 
 export async function listAiVersionsController(req, res) {
   try {
-    const { limit, latestOnly } = req.query;
-    const data = await listAiVersions({ limit, latestOnly });
+    const { limit, latestOnly, instance } = req.query;
+    const data = await listAiVersions({ limit, latestOnly, instance });
     return res.status(200).json({ data });
   } catch (error) {
     console.error('Erro ao listar IAs versionadas:', error);
