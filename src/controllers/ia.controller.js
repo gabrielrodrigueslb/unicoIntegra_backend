@@ -6,6 +6,36 @@ import {
 import { listAiVersions } from '../services/aiVersion.services.js';
 import { createLogService } from '../services/logs.services.js';
 
+function toReadableError(error) {
+  const responseData = error?.response?.data;
+
+  if (typeof responseData === 'string' && responseData.trim()) {
+    return responseData;
+  }
+
+  if (responseData && typeof responseData === 'object') {
+    if (typeof responseData.message === 'string' && responseData.message.trim()) {
+      return responseData.message;
+    }
+
+    if (typeof responseData.error === 'string' && responseData.error.trim()) {
+      return responseData.error;
+    }
+
+    try {
+      return JSON.stringify(responseData);
+    } catch {
+      return 'Erro de integração ao criar IA.';
+    }
+  }
+
+  if (typeof error?.message === 'string' && error.message.trim()) {
+    return error.message;
+  }
+
+  return 'Erro interno ao criar IA.';
+}
+
 export async function createAiAlphaController(req, res) {
   try {
     // 1. Obter todos os dados do body
@@ -83,9 +113,10 @@ export async function createAiAlphaController(req, res) {
     res.status(200).json(aiResponse);
   } catch (error) {
     console.error('Erro ao criar IA:', error);
+    const details = toReadableError(error);
     res.status(500).json({
-      message: 'Ocorreu um erro ao criar a IA.',
-      error: error.message,
+      message: `Ocorreu um erro ao criar a IA. ${details}`,
+      error: details,
     });
   }
 }
@@ -167,9 +198,10 @@ export async function createAiVannonController(req, res) {
     res.status(200).json(aiResponse);
   } catch (error) {
     console.error('Erro ao criar IA:', error);
+    const details = toReadableError(error);
     res.status(500).json({
-      message: 'Ocorreu um erro ao criar a IA.',
-      error: error.message,
+      message: `Ocorreu um erro ao criar a IA. ${details}`,
+      error: details,
     });
   }
 }
@@ -229,9 +261,10 @@ export async function createAiController(req, res) {
     res.status(200).json(aiResponse);
   } catch (error) {
     console.error('Erro ao criar IA:', error);
+    const details = toReadableError(error);
     res.status(500).json({
-      message: 'Ocorreu um erro ao criar a IA.',
-      error: error.message,
+      message: `Ocorreu um erro ao criar a IA. ${details}`,
+      error: details,
     });
   }
 }
