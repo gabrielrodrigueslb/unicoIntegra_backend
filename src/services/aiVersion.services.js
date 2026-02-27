@@ -82,9 +82,9 @@ export async function createAiVersionSnapshot(instance, payload) {
       const result = await adminPool.query(
         `
           INSERT INTO sistema.ai_versions ("instance", "version", "payload")
-          SELECT $1, COALESCE(MAX("version"), 0) + 1, $2::jsonb
+          SELECT $1::varchar(255), COALESCE(MAX("version"), 0) + 1, $2::jsonb
           FROM sistema.ai_versions
-          WHERE "instance" = $1
+          WHERE "instance" = $1::varchar(255)
           RETURNING id, "instance", "version", "payload", "createdAt";
         `,
         [instance, JSON.stringify(payload ?? {})],

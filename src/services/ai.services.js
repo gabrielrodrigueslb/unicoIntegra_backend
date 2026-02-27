@@ -5,6 +5,17 @@ import { loadAiTemplateFromDbOrFile } from './aiTemplateBase.services.js';
 import { createAiVersionSnapshot } from './aiVersion.services.js';
 import { loadAndParseTemplate } from './TemplateService.js'; // Importação nova
 
+async function tryCreateAiVersionSnapshot(instance, payload) {
+  try {
+    await createAiVersionSnapshot(instance, payload);
+  } catch (error) {
+    console.warn(
+      'AI_VERSION WARN: Falha ao versionar IA. Operacao principal concluida sem snapshot.',
+      error?.message || error,
+    );
+  }
+}
+
 export async function createAi(instance, token) {
   try {
     if (!instance) {
@@ -93,7 +104,7 @@ export async function createAiAlpha(
       'IA Alpha7 configurada com sucesso!:',
       createAlphaAiResponse.data,
     );
-    await createAiVersionSnapshot(instance, iaPayload);
+    await tryCreateAiVersionSnapshot(instance, iaPayload);
     return createAlphaAiResponse.data;
   } catch (error) {
     console.error(
@@ -164,7 +175,7 @@ export async function createAiVannon(
       'IA Vannon configurada com sucesso!:',
       createAlphaAiResponse.data,
     );
-    await createAiVersionSnapshot(instance, iaPayload);
+    await tryCreateAiVersionSnapshot(instance, iaPayload);
     return createAlphaAiResponse.data;
   } catch (error) {
     console.error(
@@ -241,7 +252,7 @@ export async function createDefaultAi(
       },
     );
 
-    await createAiVersionSnapshot(instance, iaPayload);
+    await tryCreateAiVersionSnapshot(instance, iaPayload);
     return createAiResponse.data;
   } catch (error) {
     console.error(
