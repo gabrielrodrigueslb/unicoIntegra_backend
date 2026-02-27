@@ -79,26 +79,21 @@ export async function createAiVersionSnapshot(instance, payload) {
 
   for (let attempt = 1; attempt <= MAX_VERSION_RETRIES; attempt += 1) {
     try {
-      const snapshot = await prisma.$transaction(async (tx) => {
-        const aggregate = await tx.aiVersion.aggregate({
-          where: { instance },
-          _max: { version: true },
-        });
+      const result = await adminPool.query(
+        `
+          INSERT INTO sistema.ai_versions ("instance", "version", "payload")
+          SELECT $1, COALESCE(MAX("version"), 0) + 1, $2::jsonb
+          FROM sistema.ai_versions
+          WHERE "instance" = $1
+          RETURNING id, "instance", "version", "payload", "createdAt";
+        `,
+        [instance, JSON.stringify(payload ?? {})],
+      );
 
-        const nextVersion = (aggregate._max.version ?? 0) + 1;
-
-        return tx.aiVersion.create({
-          data: {
-            instance,
-            version: nextVersion,
-            payload,
-          },
-        });
-      });
-
-      return snapshot;
+      return result.rows?.[0] ?? null;
     } catch (error) {
-      if (error?.code === 'P2002' && attempt < MAX_VERSION_RETRIES) {
+      // Conflito de unique index em corrida concorrente: tenta novamente.
+      if (error?.code === '23505' && attempt < MAX_VERSION_RETRIES) {
         continue;
       }
 
