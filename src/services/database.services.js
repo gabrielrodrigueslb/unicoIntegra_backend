@@ -121,6 +121,90 @@ function createManagedDatabaseClient(databaseName) {
   });
 }
 
+async function resolveManagedTableStatus(client) {
+  const relationName = `${EXTENSION_STATUS_SCHEMA}.${EXTENSION_STATUS_TABLE}`;
+
+  const { rows: metadataRows } = await client.query(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = $1
+          AND c.relname = $2
+          AND c.relkind IN ('r', 'p', 'f', 'v', 'm')
+      ) AS exists
+    `,
+    [EXTENSION_STATUS_SCHEMA, EXTENSION_STATUS_TABLE],
+  );
+
+  const tableExists = metadataRows[0]?.exists === true;
+
+  if (!tableExists) {
+    return {
+      tableExists: false,
+      hasProducts: false,
+      productCount: 0,
+      productCountSource: 'exact',
+      hasReadAccess: false,
+    };
+  }
+
+  const { rows: privilegeRows } = await client.query(
+    `SELECT has_table_privilege(current_user, $1, 'SELECT') AS can_select`,
+    [relationName],
+  );
+  const hasReadAccess = privilegeRows[0]?.can_select === true;
+
+  if (hasReadAccess) {
+    const qualifiedTableName = `${quoteIdentifier(
+      EXTENSION_STATUS_SCHEMA,
+    )}.${quoteIdentifier(EXTENSION_STATUS_TABLE)}`;
+    const { rows: countRows } = await client.query(
+      `SELECT COUNT(*)::bigint AS total FROM ${qualifiedTableName}`,
+    );
+    const productCount = Number(countRows[0]?.total || 0);
+
+    return {
+      tableExists: true,
+      hasProducts: productCount > 0,
+      productCount,
+      productCountSource: 'exact',
+      hasReadAccess: true,
+    };
+  }
+
+  const { rows: statsRows } = await client.query(
+    `
+      SELECT COALESCE(
+        stats.n_live_tup::bigint,
+        class.reltuples::bigint,
+        0::bigint
+      ) AS total
+      FROM pg_catalog.pg_class class
+      JOIN pg_catalog.pg_namespace namespace
+        ON namespace.oid = class.relnamespace
+      LEFT JOIN pg_catalog.pg_stat_user_tables stats
+        ON stats.schemaname = namespace.nspname
+       AND stats.relname = class.relname
+      WHERE namespace.nspname = $1
+        AND class.relname = $2
+        AND class.relkind IN ('r', 'p')
+      LIMIT 1
+    `,
+    [EXTENSION_STATUS_SCHEMA, EXTENSION_STATUS_TABLE],
+  );
+  const productCount = Number(statsRows[0]?.total || 0);
+
+  return {
+    tableExists: true,
+    hasProducts: productCount > 0,
+    productCount,
+    productCountSource: 'estimated',
+    hasReadAccess: false,
+  };
+}
+
 export async function listDatabases(page = 1, limit = 9, search = '') {
   try {
     const offset = (page - 1) * limit;
@@ -253,28 +337,12 @@ export async function checkExtensionDatabaseStatus(databaseName) {
   const normalizedDatabaseName = normalizeManagedDatabaseName(databaseName);
   const client = createManagedDatabaseClient(normalizedDatabaseName);
   const startedAt = Date.now();
-  const qualifiedTableName = `${quoteIdentifier(EXTENSION_STATUS_SCHEMA)}.${quoteIdentifier(
-    EXTENSION_STATUS_TABLE,
-  )}`;
 
   try {
     await client.connect();
+    const requirementStatus = await resolveManagedTableStatus(client);
 
-    const { rows: metadataRows } = await client.query(
-      `
-        SELECT EXISTS (
-          SELECT 1
-          FROM information_schema.tables
-          WHERE table_schema = $1
-            AND table_name = $2
-        ) AS exists
-      `,
-      [EXTENSION_STATUS_SCHEMA, EXTENSION_STATUS_TABLE],
-    );
-
-    const tableExists = metadataRows[0]?.exists === true;
-
-    if (!tableExists) {
+    if (!requirementStatus.tableExists) {
       return {
         success: true,
         message:
@@ -287,32 +355,36 @@ export async function checkExtensionDatabaseStatus(databaseName) {
           tableExists: false,
           hasProducts: false,
           productCount: 0,
+          productCountSource: 'exact',
+          hasReadAccess: false,
         },
         readyForIntegration: false,
       };
     }
-
-    const { rows: countRows } = await client.query(
-      `SELECT COUNT(*)::bigint AS total FROM ${qualifiedTableName}`,
-    );
-    const productCount = Number(countRows[0]?.total || 0);
-    const hasProducts = productCount > 0;
+    const countLabel =
+      requirementStatus.productCountSource === 'estimated'
+        ? `A estimativa atual indica ${requirementStatus.productCount} produto(s) cadastrado(s).`
+        : `${requirementStatus.productCount} produto(s) cadastrado(s).`;
 
     return {
       success: true,
-      message: hasProducts
-        ? `A tabela out_embalagem foi encontrada com ${productCount} produto(s) cadastrado(s).`
-        : 'A tabela out_embalagem existe, mas ainda nao possui produtos cadastrados.',
+      message: requirementStatus.hasProducts
+        ? `A tabela out_embalagem foi encontrada. ${countLabel}`
+        : requirementStatus.productCountSource === 'estimated'
+          ? 'A tabela out_embalagem existe. A estimativa atual indica que ela ainda nao possui produtos cadastrados.'
+          : 'A tabela out_embalagem existe, mas ainda nao possui produtos cadastrados.',
       latencyMs: Date.now() - startedAt,
       database: normalizedDatabaseName,
       requirements: {
         schema: EXTENSION_STATUS_SCHEMA,
         table: EXTENSION_STATUS_TABLE,
         tableExists: true,
-        hasProducts,
-        productCount,
+        hasProducts: requirementStatus.hasProducts,
+        productCount: requirementStatus.productCount,
+        productCountSource: requirementStatus.productCountSource,
+        hasReadAccess: requirementStatus.hasReadAccess,
       },
-      readyForIntegration: hasProducts,
+      readyForIntegration: requirementStatus.hasProducts,
     };
   } catch (error) {
     throw mapManagedDatabaseError(error, normalizedDatabaseName);
