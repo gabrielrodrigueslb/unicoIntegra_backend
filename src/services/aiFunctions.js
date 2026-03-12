@@ -1,11 +1,28 @@
-import axios from 'axios';
 import { loadAndParseTemplate } from './TemplateService.js';
+import { postIvr } from './instanceApi.services.js';
 
 function getDominio(url) {
   const normalized = url.startsWith('http') ? url : `https://${url}`;
 
   const { hostname } = new URL(normalized);
   return hostname.split('.')[0];
+}
+
+async function installTemplate({
+  instance,
+  token,
+  templatePath,
+  variables = {},
+  errorMessage,
+}) {
+  const payload = await loadAndParseTemplate(templatePath, variables);
+  const response = await postIvr(instance, payload, token);
+
+  if (!response?.id) {
+    throw new Error(errorMessage);
+  }
+
+  return response.id;
 }
 
 export async function alpha7Functions(
@@ -18,182 +35,91 @@ export async function alpha7Functions(
   queueId,
   iaId,
 ) {
-  // Configuração do Header de Autorização (para a requisição de POST atual)
-  const axiosConfig = {
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-  };
-
   try {
-    // 1. DEFINIÇÃO DE VARIÁVEIS DE INSTALAÇÃO
     const commonVars = {
       instanciaDoCliente: instance,
       queueIdCliente: queueId,
       apiKeyCliente: apiKey,
       clientIpCliente: clientIp,
       clientPortCliente: clientPort,
-      unidade_negocio: unidade_negocio,
-      iaId: iaId,
+      unidade_negocio,
+      iaId,
     };
 
-    // =====================================================================
-    // PASSO 1: Instalar "Download Image"
-    // Dependências: instanciaDoCliente, queueIdCliente, apiKeyCliente
-    // =====================================================================
     console.log('--- Passo 1: Download Image ---');
-    const payloadDownload = await loadAndParseTemplate(
-      'alpha7Download.json',
-      commonVars,
-    );
-
-    const resDownload = await axios.post(
-      `${instance}/ivrs/`,
-      payloadDownload,
-      axiosConfig,
-    );
-
-    if (!resDownload.data?.id) throw new Error('Falha ao criar Download Image');
-    const idDownloadImage = resDownload.data.id;
+    const idDownloadImage = await installTemplate({
+      instance,
+      token,
+      templatePath: 'alpha7Download.json',
+      variables: commonVars,
+      errorMessage: 'Falha ao criar Download Image',
+    });
     console.log(`Download Image criado. ID: ${idDownloadImage}`);
 
-    // =====================================================================
-    // PASSO 2: Instalar "Adiciona Item"
-    // Dependências: instanciaDoCliente, queueIdCliente, apiKeyCliente
-    // =====================================================================
     console.log('--- Passo 2: Filtra itens ---');
-    const payloadFiltraProduto = await loadAndParseTemplate(
-      'alpha7_filtra_produto.json',
-      commonVars,
-    );
-
-    const resFiltraProduto = await axios.post(
-      `${instance}/ivrs/`,
-      payloadFiltraProduto,
-      axiosConfig,
-    );
-
-    if (!resFiltraProduto.data?.id)
-      throw new Error('Falha ao criar FiltraProduto');
-    const FiltraProdutoItemId = resFiltraProduto.data.id;
+    const FiltraProdutoItemId = await installTemplate({
+      instance,
+      token,
+      templatePath: 'alpha7_filtra_produto.json',
+      variables: commonVars,
+      errorMessage: 'Falha ao criar FiltraProduto',
+    });
     console.log(`FiltraProduto criado. ID: ${FiltraProdutoItemId}`);
 
-    // =====================================================================
-    // PASSO 3: Instalar "Envio de Itens"
-    // Dependências: instanciaDoCliente, queueIdCliente, apiKeyCliente, dbNameCliente + idDownloadImage
-    // =====================================================================
     console.log('--- Passo 3: Envio de Itens ---');
-
-    // Cria o objeto final mesclando as comuns com o ID gerado dinamicamente
-    const buscaItensItemsVars = {
-      ...commonVars,
-      idDownloadImage: idDownloadImage,
-    };
-
-    // Atenção ao nome do arquivo: mantive conforme seu upload anterior
-    const payloadBuscaItens = await loadAndParseTemplate(
-      'alpha7_busca_itens.json',
-      buscaItensItemsVars,
-    );
-
-    const resBuscaItens = await axios.post(
-      `${instance}/ivrs/`,
-      payloadBuscaItens,
-      axiosConfig,
-    );
-
-    if (!resBuscaItens.data?.id)
-      throw new Error('Falha ao criar BuscaItens de Itens');
-    const BuscaItensId = resBuscaItens.data.id;
+    const BuscaItensId = await installTemplate({
+      instance,
+      token,
+      templatePath: 'alpha7_busca_itens.json',
+      variables: {
+        ...commonVars,
+        idDownloadImage,
+      },
+      errorMessage: 'Falha ao criar BuscaItens de Itens',
+    });
     console.log(`BuscaItens de Itens criado. ID: ${BuscaItensId}`);
 
-    // =====================================================================
-    // PASSO 4: Instalar "Ura IA"
-    // Dependências: iaId
-    // =====================================================================
     console.log('--- Passo 4: URA IA ---');
-
-    // Cria o objeto final mesclando as comuns com o ID gerado dinamicamente
-    const uraIaVars = {
-      ...commonVars,
-    };
-
-    // Atenção ao nome do arquivo: mantive conforme seu upload anterior
-    const payloadUraIa = await loadAndParseTemplate('ura_ia.json', uraIaVars);
-
-    const resUraIa = await axios.post(
-      `${instance}/ivrs/`,
-      payloadUraIa,
-      axiosConfig,
-    );
-
-    if (!resUraIa.data?.id) throw new Error('Falha ao criar Ura da IA');
-    const UraIaId = resUraIa.data.id;
+    const UraIaId = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ura_ia.json',
+      variables: commonVars,
+      errorMessage: 'Falha ao criar Ura da IA',
+    });
     console.log(`Ura da foi criada. ID: ${UraIaId}`);
 
-    // =====================================================================
-    // PASSO 5: Instalar "Ura - teste AB"
-    // Dependências: UraIaId
-    // =====================================================================
     console.log('--- Passo 5: URA IA - AB ---');
-
-    // Cria o objeto final mesclando as comuns com o ID gerado dinamicamente
-    const uraIaAbVars = {
-      ...commonVars,
-      UraIaId: UraIaId,
-    };
-
-    // Atenção ao nome do arquivo: mantive conforme seu upload anterior
-    const payloadUraIaAb = await loadAndParseTemplate(
-      'ura_ia_ab.json',
-      uraIaAbVars,
-    );
-
-    const resUraIaAb = await axios.post(
-      `${instance}/ivrs/`,
-      payloadUraIaAb,
-      axiosConfig,
-    );
-
-    if (!resUraIaAb.data?.id) throw new Error('Falha ao criar Ura da IA - AB');
-    const UraIaAbId = resUraIaAb.data.id;
+    const UraIaAbId = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ura_ia_ab.json',
+      variables: {
+        ...commonVars,
+        UraIaId,
+      },
+      errorMessage: 'Falha ao criar Ura da IA - AB',
+    });
     console.log(`Ura da IA - AB foi criada. ID: ${UraIaAbId}`);
 
-    // =====================================================================
-    // PASSO 6: Instalar "Ura - teste AB"
-    // Dependências: UraIaId
-    // =====================================================================
     console.log('--- Passo 6: Pré processamento ---');
+    const preProcessId = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ai_pre_processamento.json',
+      variables: commonVars,
+      errorMessage: 'Falha ao criar pré processamento',
+    });
+    console.log(`Pré processamento criado. ID: ${preProcessId}`);
 
-    // Atenção ao nome do arquivo: mantive conforme seu upload anterior
-    const payloadPreProcess = await loadAndParseTemplate(
-      'ai_pre_processamento.json',
-      commonVars,
-    );
-
-    const resPreProcess = await axios.post(
-      `${instance}/ivrs/`,
-      payloadPreProcess,
-      axiosConfig,
-    );
-
-    if (!resPreProcess.data?.id)
-      throw new Error('Falha ao criar Ura da IA - AB');
-    const preProcessId = resPreProcess.data.id;
-    console.log(`Ura da IA - AB foi criada. ID: ${preProcessId}`);
-
-    // =====================================================================
-    // RETORNO FINAL
-    // =====================================================================
     return {
       success: true,
       downloadImageId: idDownloadImage,
-      FiltraProdutoItemId: FiltraProdutoItemId,
-      BuscaItensId: BuscaItensId,
-      UraIaId: UraIaId,
-      UraIaAbId: UraIaAbId,
-      preProcessId: preProcessId,
+      FiltraProdutoItemId,
+      BuscaItensId,
+      UraIaId,
+      UraIaAbId,
+      preProcessId,
     };
   } catch (error) {
     console.error(
@@ -214,192 +140,95 @@ export async function vannonFunctions(
   iaId,
   cepLoja,
 ) {
-  const axiosConfig = {
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-  };
-
   try {
-    // 1. DEFINIÇÃO DE VARIÁVEIS DE INSTALAÇÃO
-    const commonVars = {
-      instanciaDoCliente: instance,
-      queueIdCliente: queueId,
-      apiKeyCliente: apiKey,
-      clientEndpoint: clientEndpoint,
-      iaId: iaId,
-      cepLoja: cepLoja,
-    };
     const vannonInstallVars = {
-      clientEndpoint: clientEndpoint,
-      clientName: clientName,
+      clientEndpoint,
+      clientName,
       clientEndpointUnico: getDominio(instance),
       clientQueueId: queueId,
-      iaId: iaId,
+      iaId,
       clientApiKey: apiKey,
     };
 
-    // =====================================================================
-    // PASSO 1: Instalar "download de imagens IA Vannon"
-    // =====================================================================
     console.log('--- Passo 1: Download Image ---');
-    const payloadDownload = await loadAndParseTemplate(
-      'ia/vannon/download_de_imagens_IA_Vannon.json',
-      vannonInstallVars,
-    );
-
-    const resDownload = await axios.post(
-      `${instance}/ivrs/`,
-      payloadDownload,
-      axiosConfig,
-    );
-
-    if (!resDownload.data?.id) throw new Error('Falha ao criar Download Image');
-    const idDownloadImage = resDownload.data.id;
+    const idDownloadImage = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ia/vannon/download_de_imagens_IA_Vannon.json',
+      variables: vannonInstallVars,
+      errorMessage: 'Falha ao criar Download Image',
+    });
     console.log(`Download Image criado. ID: ${idDownloadImage}`);
 
-    // =====================================================================
-    // PASSO 2: Instalar "pré processamento"
-    // Dependências: instanciaDoCliente, queueIdCliente, apiKeyCliente
-    // =====================================================================
     console.log('--- Passo 2: pré processamento ---');
-    const payloadpreProcess = await loadAndParseTemplate(
-      'ia/vannon/pre_processamento.json',
-      vannonInstallVars,
-    );
-
-    const resPreProcess = await axios.post(
-      `${instance}/ivrs/`,
-      payloadpreProcess,
-      axiosConfig,
-    );
-
-    if (!resPreProcess.data?.id)
-      throw new Error('Falha ao criar Pré processamento');
-    const preProcessId = resPreProcess.data.id;
+    const preProcessId = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ia/vannon/pre_processamento.json',
+      variables: vannonInstallVars,
+      errorMessage: 'Falha ao criar Pré processamento',
+    });
     console.log(`Pré processamento criado. ID: ${preProcessId}`);
 
-    // =====================================================================
-    // PASSO 3: Instalar "Envio de Itens"
-    // Dependências: idDownloadImage
-    // =====================================================================
     console.log('--- Passo 3: Envio de Itens ---');
-
-    // Cria o objeto final mesclando as comuns com o ID gerado dinamicamente
-    const buscaItensItemsVars = {
-      ...vannonInstallVars,
-      idDownloadImage: idDownloadImage,
-    };
-
-    // Atenção ao nome do arquivo: mantive conforme seu upload anterior
-    const payloadEnvioItens = await loadAndParseTemplate(
-      'ia/vannon/envio_itens_vannon.json',
-      buscaItensItemsVars,
-    );
-
-    const resEnvioItens = await axios.post(
-      `${instance}/ivrs/`,
-      payloadEnvioItens,
-      axiosConfig,
-    );
-
-    if (!resEnvioItens.data?.id)
-      throw new Error('Falha ao criar envioItens de Itens');
-    const envioItensId = resEnvioItens.data.id;
+    const envioItensId = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ia/vannon/envio_itens_vannon.json',
+      variables: {
+        ...vannonInstallVars,
+        idDownloadImage,
+      },
+      errorMessage: 'Falha ao criar envioItens de Itens',
+    });
     console.log(`envioItens criado. ID: ${envioItensId}`);
 
-    // =====================================================================
-    // PASSO 4: Instalar "transfere_para_atendente_encerrar"
-    // =====================================================================
     console.log('--- Passo 4: Envio de Itens ---');
-
-    // Atenção ao nome do arquivo: mantive conforme seu upload anterior
-    const payloadTransfere = await loadAndParseTemplate(
-      'ia/vannon/transfere_para_atendente_encerrar.json',
-    );
-
-    const resTransfere = await axios.post(
-      `${instance}/ivrs/`,
-      payloadTransfere,
-      axiosConfig,
-    );
-
-    if (!resTransfere.data?.id)
-      throw new Error('Falha ao criar Transfererir para atendente');
-    const transfereId = resTransfere.data.id;
+    const transfereId = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ia/vannon/transfere_para_atendente_encerrar.json',
+      errorMessage: 'Falha ao criar Transfererir para atendente',
+    });
     console.log(`Transfererir para atendente criado. ID: ${transfereId}`);
 
-    // =====================================================================
-    // PASSO 5: Instalar "Ura IA"
-    // Dependências: iaId
-    // =====================================================================
     console.log('--- Passo 5: URA IA ---');
-
-    // Cria o objeto final mesclando as comuns com o ID gerado dinamicamente
-    const uraIaAbVars = {
-      ...vannonInstallVars,
-      iaId: iaId,
-      cepLoja: cepLoja,
-    };
-
-    // Atenção ao nome do arquivo: mantive conforme seu upload anterior
-    const payloadUraIaAb = await loadAndParseTemplate(
-      'ia/vannon/ura_vannon.json',
-      uraIaAbVars,
-    );
-
-    const resUraIaAb = await axios.post(
-      `${instance}/ivrs/`,
-      payloadUraIaAb,
-      axiosConfig,
-    );
-
-    if (!resUraIaAb.data?.id) throw new Error('Falha ao criar Ura da IA - AB');
-    const UraIaId = resUraIaAb.data.id;
+    const UraIaId = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ia/vannon/ura_vannon.json',
+      variables: {
+        ...vannonInstallVars,
+        iaId,
+        cepLoja,
+      },
+      errorMessage: 'Falha ao criar Ura da IA - AB',
+    });
     console.log(`Ura da IA - AB foi criada. ID: ${UraIaId}`);
 
-    // =====================================================================
-    // PASSO 6: Instalar "Ura - teste AB"
-    // Dependências: UraIaId
-    // =====================================================================
     console.log('--- Passo 6: URA AB ---');
-
-    // Cria o objeto final mesclando as comuns com o ID gerado dinamicamente
-    const uraAbVars = {
-      ...vannonInstallVars,
-      UraIaId: UraIaId,
-      idDownloadImage: idDownloadImage,
-      clientName: clientName,
-    };
-
-    // Atenção ao nome do arquivo: mantive conforme seu upload anterior
-    const payloadUraAb = await loadAndParseTemplate(
-      'ia/vannon/ura_ab.json',
-      uraAbVars,
-    );
-
-    const resUraAb = await axios.post(
-      `${instance}/ivrs/`,
-      payloadUraAb,
-      axiosConfig,
-    );
-
-    if (!resUraAb.data?.id) throw new Error('Falha ao criar Ura da IA - AB');
-    const UraAbId = resUraAb.data.id;
+    const UraAbId = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ia/vannon/ura_ab.json',
+      variables: {
+        ...vannonInstallVars,
+        UraIaId,
+        idDownloadImage,
+        clientName,
+      },
+      errorMessage: 'Falha ao criar Ura da IA - AB',
+    });
     console.log(`Ura da IA - AB foi criada. ID: ${UraAbId}`);
 
-    // =====================================================================
-    // RETORNO FINAL
-    // =====================================================================
     return {
       success: true,
       downloadImageId: idDownloadImage,
-      preProcessId: preProcessId,
-      envioItensId: envioItensId,
-      transfereId: transfereId,
-      UraIaId: UraIaId,
-      UraAbId: UraAbId,
+      preProcessId,
+      envioItensId,
+      transfereId,
+      UraIaId,
+      UraAbId,
     };
   } catch (error) {
     console.error(

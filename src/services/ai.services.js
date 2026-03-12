@@ -1,9 +1,13 @@
-import axios from 'axios';
-import loginInstance from './loginInstance.js';
 import { alpha7Functions, vannonFunctions } from './aiFunctions.js';
 import { loadAiTemplateFromDbOrFile } from './aiTemplateBase.services.js';
+import {
+  authenticateInstance,
+  createAssistantItem,
+  postIvr,
+  updateAssistantItem,
+} from './instanceApi.services.js';
+import { loadAndParseTemplate } from './TemplateService.js';
 import { createAiVersionSnapshot } from './aiVersion.services.js';
-import { loadAndParseTemplate } from './TemplateService.js'; // Importação nova
 
 async function tryCreateAiVersionSnapshot(instance, payload) {
   try {
@@ -21,20 +25,15 @@ export async function createAi(instance, token) {
     if (!instance) {
       throw new Error('Informe a instância para criar a IA.');
     }
-    // Criação inicial básica (Item placeholder)
-    const installResponse = await axios.post(
-      `${instance}/assistants/createItem`,
+
+    const installResponse = await createAssistantItem(
+      instance,
       { name: 'Novo assistente' },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      },
+      token,
     );
 
-    console.log('IA criada com sucesso!:', installResponse.data);
-    return installResponse.data;
+    console.log('IA criada com sucesso!:', installResponse);
+    return installResponse;
   } catch (error) {
     console.error(
       'Falha ao criar a IA:',
@@ -57,16 +56,14 @@ export async function createAiAlpha(
   apiKey,
   queueId,
 ) {
-  const loginData = await loginInstance(instance, username, password, code2fa);
+  const token = await authenticateInstance(instance, username, password, code2fa);
 
-  // 1. Cria a IA em branco para pegar o ID
-  const aiData = await createAi(instance, loginData.token);
+  const aiData = await createAi(instance, token);
   const iaId = aiData.id;
 
-  // 2. Roda as funções auxiliares (IVRs)
   const ivrIds = await alpha7Functions(
     instance,
-    loginData.token,
+    token,
     clientIp,
     clientPort,
     unidade_negocio,
@@ -75,37 +72,30 @@ export async function createAiAlpha(
     iaId,
   );
 
-  // 3. Carrega o Template da IA configurada
-  // Note que passamos os IDs retornados pela alpha7Functions
-  const iaPayload = await loadAiTemplateFromDbOrFile('alpha7', {
-    id: aiData.id,
-    signaturename: name,
-    context: context || 'Você é um assistente...', // Fallback se context for null
-    preProcessId: ivrIds.preProcessId,
-    FiltraProdutoItemId: ivrIds.FiltraProdutoItemId,
-    BuscaItensId: ivrIds.BuscaItensId,
-  }, 'ia/alpha7_ia_config.json');
+  const iaPayload = await loadAiTemplateFromDbOrFile(
+    'alpha7',
+    {
+      id: aiData.id,
+      signaturename: name,
+      context: context || 'Você é um assistente...',
+      preProcessId: ivrIds.preProcessId,
+      FiltraProdutoItemId: ivrIds.FiltraProdutoItemId,
+      BuscaItensId: ivrIds.BuscaItensId,
+    },
+    'ia/alpha7_ia_config.json',
+  );
 
-  // O payload do template não tem o ID da IA criado no passo 1, precisamos injetar ou garantir que o updateItem use o ID da URL/Body
   iaPayload.id = aiData.id;
 
   try {
-    const createAlphaAiResponse = await axios.post(
-      `${instance}/assistants/updateItem`,
+    const createAlphaAiResponse = await updateAssistantItem(
+      instance,
       iaPayload,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${loginData.token}`,
-        },
-      },
+      token,
     );
-    console.log(
-      'IA Alpha7 configurada com sucesso!:',
-      createAlphaAiResponse.data,
-    );
+    console.log('IA Alpha7 configurada com sucesso!:', createAlphaAiResponse);
     await tryCreateAiVersionSnapshot(instance, iaPayload);
-    return createAlphaAiResponse.data;
+    return createAlphaAiResponse;
   } catch (error) {
     console.error(
       'Falha ao configurar a IA Alpha7:',
@@ -126,18 +116,16 @@ export async function createAiVannon(
   clientName,
   apiKey,
   queueId,
-  cepLoja
+  cepLoja,
 ) {
-  const loginData = await loginInstance(instance, username, password, code2fa);
+  const token = await authenticateInstance(instance, username, password, code2fa);
 
-  // 1. Cria a IA em branco para pegar o ID
-  const aiData = await createAi(instance, loginData.token);
+  const aiData = await createAi(instance, token);
   const iaId = aiData.id;
 
-  // 2. Roda as funções auxiliares (IVRs)
   const ivrIds = await vannonFunctions(
     instance,
-    loginData.token,
+    token,
     clientEndpoint,
     clientName,
     apiKey,
@@ -146,37 +134,30 @@ export async function createAiVannon(
     cepLoja,
   );
 
-  // 3. Carrega o Template da IA configurada
-  // Note que passamos os IDs retornados pela alpha7Functions
-  const iaPayload = await loadAiTemplateFromDbOrFile('vannon', {
-    id: aiData.id,
-    signaturename: name,
-    context: context || 'Você é um assistente...', // Fallback se context for null
-    preProcessId: ivrIds.preProcessId,
-    envioItensId: ivrIds.envioItensId,
-    transfereId: ivrIds.transfereId,
-  }, 'ia/vannon/Vannon_ai_config.json');
+  const iaPayload = await loadAiTemplateFromDbOrFile(
+    'vannon',
+    {
+      id: aiData.id,
+      signaturename: name,
+      context: context || 'Você é um assistente...',
+      preProcessId: ivrIds.preProcessId,
+      envioItensId: ivrIds.envioItensId,
+      transfereId: ivrIds.transfereId,
+    },
+    'ia/vannon/Vannon_ai_config.json',
+  );
 
-  // O payload do template não tem o ID da IA criado no passo 1, precisamos injetar ou garantir que o updateItem use o ID da URL/Body
   iaPayload.id = aiData.id;
 
   try {
-    const createAlphaAiResponse = await axios.post(
-      `${instance}/assistants/updateItem`,
+    const createAlphaAiResponse = await updateAssistantItem(
+      instance,
       iaPayload,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${loginData.token}`,
-        },
-      },
+      token,
     );
-    console.log(
-      'IA Vannon configurada com sucesso!:',
-      createAlphaAiResponse.data,
-    );
+    console.log('IA Vannon configurada com sucesso!:', createAlphaAiResponse);
     await tryCreateAiVersionSnapshot(instance, iaPayload);
-    return createAlphaAiResponse.data;
+    return createAlphaAiResponse;
   } catch (error) {
     console.error(
       'Falha ao configurar a IA Vannon:',
@@ -194,24 +175,18 @@ export async function createDefaultAi(
   name,
   context,
 ) {
-  const loginData = await loginInstance(instance, username, password, code2fa);
+  const token = await authenticateInstance(instance, username, password, code2fa);
 
   let installResponse;
   let aiData;
 
-  // 1️⃣ Cria o pré-processamento (Carregando do JSON)
   try {
     const automationPayload = await loadAndParseTemplate(
       'default_pre_automation.json',
       {},
     );
 
-    installResponse = await axios.post(`${instance}/ivrs/`, automationPayload, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${loginData.token}`,
-      },
-    });
+    installResponse = await postIvr(instance, automationPayload, token);
   } catch (error) {
     console.error(
       'Falha instalar o pré processador:',
@@ -220,14 +195,12 @@ export async function createDefaultAi(
     throw error;
   }
 
-  // 2️⃣ Cria a IA base
   try {
-    aiData = await createAi(instance, loginData.token);
+    aiData = await createAi(instance, token);
   } catch (error) {
     throw error;
   }
 
-  // 3️⃣ Atualiza a IA com a automation (Aqui você pode criar outro template se quiser 'default_ia_config.json' ou manter inline se for simples)
   try {
     const iaPayload = await loadAiTemplateFromDbOrFile(
       'atendimento',
@@ -236,24 +209,19 @@ export async function createDefaultAi(
         name: `${name}`,
         signaturename: name,
         context,
-        preautomation: installResponse.data.id,
+        preautomation: installResponse.id,
       },
       'ia/default_atendimento_ia_config.json',
     );
 
-    const createAiResponse = await axios.post(
-      `${instance}/assistants/updateItem`,
+    const createAiResponse = await updateAssistantItem(
+      instance,
       iaPayload,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${loginData.token}`,
-        },
-      },
+      token,
     );
 
     await tryCreateAiVersionSnapshot(instance, iaPayload);
-    return createAiResponse.data;
+    return createAiResponse;
   } catch (error) {
     console.error(
       'Falha ao criar a IA:',

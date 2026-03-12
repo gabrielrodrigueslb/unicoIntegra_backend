@@ -1,17 +1,28 @@
 import { Router } from "express";
-import { getDatabases, createDatabaseController } from "../controllers/database.controller.js";
-import { apiKeyMiddleware } from "../middlewares/apiKey.middleware.js";
+import {
+  checkExtensionDatabaseStatusController,
+  createDatabaseController,
+  getDatabases,
+  testDatabaseConnectionController,
+} from "../controllers/database.controller.js";
 
-
-
-const router = Router()
+const router = Router();
 
 router.options('/createDatabase', (req, res) => {
-  // Apenas responda 204 "No Content", que é o que o preflight espera.
+  res.sendStatus(204);
+});
+
+router.options('/testConnection', (req, res) => {
+  res.sendStatus(204);
+});
+
+router.options('/checkIntegrationStatus', (req, res) => {
   res.sendStatus(204);
 });
 
 router.get('/', getDatabases);
 router.post('/createDatabase', createDatabaseController);
+router.post('/testConnection', testDatabaseConnectionController);
+router.post('/checkIntegrationStatus', checkExtensionDatabaseStatusController);
 
-export default router
+export default router;

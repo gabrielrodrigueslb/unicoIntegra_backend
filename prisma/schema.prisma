@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  previewFeatures = ["multiSchema"]
 }
 
 model AiVersion {
@@ -26,6 +25,8 @@ model AiTemplateBase {
   templateContent String
   contentType    String   @default("json-template") @db.VarChar(50)
   sourcePath     String?  @db.VarChar(255)
+  immutablePaths Json?
+  ivrBindings    Json?
   isCurrent      Boolean  @default(true)
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now()) @db.Timestamp(6)

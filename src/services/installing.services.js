@@ -1,30 +1,26 @@
-// installing.services.js
-import axios from 'axios';
-import loginInstance from './loginInstance.js';
+import {
+  authenticateInstance,
+  postIvr,
+} from './instanceApi.services.js';
 
-export async function installingIntegration(instance, username, password, code, integrationData) {
+export async function installingIntegration(
+  instance,
+  username,
+  password,
+  code,
+  integrationData,
+) {
   try {
-    const loginData = await loginInstance(instance, username, password, code);
+    const token = await authenticateInstance(instance, username, password, code);
+    const response = await postIvr(instance, integrationData, token);
 
-    const installResponse = await axios.post(
-      `${instance}/ivrs/`,
-      integrationData,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${loginData.token}`,
-        },
-      },
-    );
-
-    console.log('Integration installation successful:', installResponse.data);
-    return installResponse.data;
+    console.log('Integration installation successful:', response);
+    return response;
   } catch (error) {
-    const errorMessage = error.response?.data?.message || error.response?.data || error.message;
-    
+    const errorMessage =
+      error.response?.data?.message || error.response?.data || error.message;
+
     console.error('Falha detalhada:', errorMessage);
-    
-    // Lança um erro personalizado para o controller pegar
     throw new Error(JSON.stringify(errorMessage));
   }
 }
