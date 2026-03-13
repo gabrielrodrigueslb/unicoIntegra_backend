@@ -18,6 +18,25 @@ function createDatabaseError(message, statusCode = 500) {
   return error;
 }
 
+function normalizeOptionalCnpj(value) {
+  const digits = String(value || '')
+    .replace(/\D/g, '')
+    .slice(0, 14);
+
+  if (!digits) {
+    return '';
+  }
+
+  if (digits.length !== 14) {
+    throw createDatabaseError(
+      'Informe um CNPJ com 14 digitos para consultar a unidade de negocio.',
+      400,
+    );
+  }
+
+  return digits;
+}
+
 function normalizeConnectionConfig(config) {
   const host = config.host?.trim();
   const database = config.database?.trim();
@@ -25,6 +44,7 @@ function normalizeConnectionConfig(config) {
   const password = typeof config.password === 'string' ? config.password : '';
   const port = Number(config.port);
   const ssl = Boolean(config.ssl);
+  const cnpj = normalizeOptionalCnpj(config.cnpj);
 
   if (!host) {
     throw createDatabaseError('Informe o host do banco.', 400);
@@ -53,6 +73,7 @@ function normalizeConnectionConfig(config) {
     password,
     port,
     ssl,
+    cnpj,
   };
 }
 
@@ -76,6 +97,76 @@ function quoteIdentifier(identifier) {
   }
 
   return `"${identifier}"`;
+}
+
+async function findBusinessUnitByCnpj(client, cnpj) {
+  const normalizedCnpj = normalizeOptionalCnpj(cnpj);
+
+  if (!normalizedCnpj) {
+    return null;
+  }
+
+  try {
+    const { rows } = await client.query(
+      `
+        SELECT
+          id,
+          status,
+          codigo,
+          nome,
+          cnpj,
+          nomefantasia,
+          razaosocial
+        FROM public.unidadenegocio
+        WHERE regexp_replace(COALESCE(cnpj, ''), '[^0-9]', '', 'g') = $1
+        ORDER BY CASE WHEN status = 'A' THEN 0 ELSE 1 END, id ASC
+        LIMIT 1
+      `,
+      [normalizedCnpj],
+    );
+
+    const unit = rows[0];
+
+    if (!unit) {
+      return {
+        requestedCnpj: normalizedCnpj,
+        found: false,
+        message:
+          'Nenhuma unidade de negocio foi encontrada para o CNPJ informado.',
+        unit: null,
+      };
+    }
+
+    return {
+      requestedCnpj: normalizedCnpj,
+      found: true,
+      message: 'Unidade de negocio localizada com sucesso.',
+      unit: {
+        id: Number(unit.id),
+        status: unit.status || null,
+        codigo: unit.codigo || null,
+        nome: unit.nome || null,
+        cnpj: unit.cnpj || null,
+        nomeFantasia: unit.nomefantasia || null,
+        razaoSocial: unit.razaosocial || null,
+      },
+    };
+  } catch (error) {
+    const lookupMessageByCode = {
+      '42P01': 'A tabela unidadenegocio nao foi encontrada neste banco.',
+      '42501':
+        'O usuario informado nao tem permissao para consultar a tabela unidadenegocio.',
+    };
+
+    return {
+      requestedCnpj: normalizedCnpj,
+      found: false,
+      message:
+        lookupMessageByCode[error.code] ||
+        'A conexao foi validada, mas nao foi possivel consultar a unidade de negocio para o CNPJ informado.',
+      unit: null,
+    };
+  }
 }
 
 function mapConnectionError(error) {
@@ -313,6 +404,10 @@ export async function testDatabaseConnection(config) {
     const { rows } = await client.query(
       'SELECT current_database() AS database, current_user AS user_name',
     );
+    const businessUnitLookup = await findBusinessUnitByCnpj(
+      client,
+      normalizedConfig.cnpj,
+    );
 
     return {
       success: true,
@@ -325,6 +420,7 @@ export async function testDatabaseConnection(config) {
         user: rows[0]?.user_name || normalizedConfig.user,
         ssl: normalizedConfig.ssl,
       },
+      businessUnitLookup,
     };
   } catch (error) {
     throw mapConnectionError(error);
