@@ -25,88 +25,76 @@ async function installTemplate({
   return response.id;
 }
 
-export async function alpha7Functions(
+export async function alpha7Functions({
   instance,
   token,
-  clientIp,
-  clientPort,
+  nome_cliente,
+  porta_cliente,
   unidade_negocio,
   apiKey,
-  queueId,
   iaId,
-) {
+}) {
   try {
     const commonVars = {
-      instanciaDoCliente: instance,
-      queueIdCliente: queueId,
-      apiKeyCliente: apiKey,
-      clientIpCliente: clientIp,
-      clientPortCliente: clientPort,
+      url_cliente: instance,
+      api_key: apiKey,
+      nome_cliente,
+      porta_cliente,
       unidade_negocio,
-      iaId,
+      ia_id: iaId,
     };
 
     console.log('--- Passo 1: Download Image ---');
-    const idDownloadImage = await installTemplate({
+    const download_img_id = await installTemplate({
       instance,
       token,
-      templatePath: 'alpha7Download.json',
+      templatePath: 'ia/alpha7/alpha_download_imagem.json',
       variables: commonVars,
       errorMessage: 'Falha ao criar Download Image',
     });
-    console.log(`Download Image criado. ID: ${idDownloadImage}`);
+    console.log(`Download Image criado. ID: ${download_img_id}`);
 
-    console.log('--- Passo 2: Filtra itens ---');
-    const FiltraProdutoItemId = await installTemplate({
-      instance,
-      token,
-      templatePath: 'alpha7_filtra_produto.json',
-      variables: commonVars,
-      errorMessage: 'Falha ao criar FiltraProduto',
-    });
-    console.log(`FiltraProduto criado. ID: ${FiltraProdutoItemId}`);
-
-    console.log('--- Passo 3: Envio de Itens ---');
+    console.log('--- Passo 2: busca de produtos ---');
     const BuscaItensId = await installTemplate({
       instance,
       token,
-      templatePath: 'alpha7_busca_itens.json',
+      templatePath: 'ia/alpha7/alpha_busca_produtos.json',
       variables: {
         ...commonVars,
-        idDownloadImage,
+        download_img_id,
       },
       errorMessage: 'Falha ao criar BuscaItens de Itens',
     });
     console.log(`BuscaItens de Itens criado. ID: ${BuscaItensId}`);
 
-    console.log('--- Passo 4: URA IA ---');
-    const UraIaId = await installTemplate({
+    console.log('--- Passo 3: URA IA ---');
+    const ura_ia_id = await installTemplate({
       instance,
       token,
-      templatePath: 'ura_ia.json',
+      templatePath: 'ia/alpha7/alpha_ura.json',
       variables: commonVars,
       errorMessage: 'Falha ao criar Ura da IA',
     });
-    console.log(`Ura da foi criada. ID: ${UraIaId}`);
+    console.log(`Ura da foi criada. ID: ${ura_ia_id}`);
 
-    console.log('--- Passo 5: URA IA - AB ---');
+    console.log('--- Passo 4: URA IA - AB ---');
     const UraIaAbId = await installTemplate({
       instance,
       token,
-      templatePath: 'ura_ia_ab.json',
+      templatePath: 'ia/alpha7/alpha_ab.json',
       variables: {
         ...commonVars,
-        UraIaId,
+        ura_ia_id,
       },
       errorMessage: 'Falha ao criar Ura da IA - AB',
     });
     console.log(`Ura da IA - AB foi criada. ID: ${UraIaAbId}`);
 
-    console.log('--- Passo 6: Pré processamento ---');
+    console.log('--- Passo 5: Pré processamento ---');
     const preProcessId = await installTemplate({
       instance,
       token,
-      templatePath: 'ai_pre_processamento.json',
+      templatePath: 'ia/alpha7/alpha_pre_processamento.json',
       variables: commonVars,
       errorMessage: 'Falha ao criar pré processamento',
     });
@@ -114,11 +102,10 @@ export async function alpha7Functions(
 
     return {
       success: true,
-      downloadImageId: idDownloadImage,
-      FiltraProdutoItemId,
+      downloadImageId: download_img_id,
       BuscaItensId,
-      UraIaId,
-      UraIaAbId,
+      uraIaId: ura_ia_id,
+      uraIaAbId: UraIaAbId,
       preProcessId,
     };
   } catch (error) {

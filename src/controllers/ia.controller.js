@@ -38,22 +38,34 @@ function toReadableError(error) {
 
 export async function createAiAlphaController(req, res) {
   try {
-    // 1. Obter todos os dados do body
     const {
       instance,
       username,
       password,
       name,
-      context,
-      clientIp,
+      nome_cliente,
+      nomeCliente,
+      clientName,
+      porta_cliente,
       clientPort,
       unidade_negocio,
+      unidadeNegocio,
       apiKey,
-      queueId,
       code,
     } = req.body;
 
-    // 2. Validar campos obrigatórios
+    const alphaPayload = {
+      instance,
+      username,
+      password,
+      code2fa: code,
+      name,
+      nome_cliente: nome_cliente || nomeCliente || clientName,
+      porta_cliente: clientPort || porta_cliente,
+      unidade_negocio: unidade_negocio || unidadeNegocio,
+      apiKey,
+    };
+
     if (!instance) {
       return res
         .status(400)
@@ -74,34 +86,31 @@ export async function createAiAlphaController(req, res) {
         .status(400)
         .json({ message: 'O campo "name" (signaturename) é obrigatório' });
     }
-    if (!queueId) {
+    if (!alphaPayload.nome_cliente) {
       return res
         .status(400)
-        .json({ message: 'O campo "queueId" é obrigatório' });
+        .json({ message: 'O campo "nome_cliente" é obrigatório' });
+    }
+    if (!alphaPayload.porta_cliente) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "porta_cliente" é obrigatório' });
+    }
+    if (!alphaPayload.unidade_negocio) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "unidade_negocio" é obrigatório' });
     }
     if (!apiKey) {
       return res
         .status(400)
         .json({ message: 'O campo "apiKey" é obrigatório' });
     }
-    if (!code) {
+    if (!alphaPayload.code2fa) {
       return res.status(400).json({ message: 'O campo "code" é obrigatório' });
     }
 
-    // 3. Chamar a função correta (createAiAlpha) com todos os parâmetros
-    const aiResponse = await createAiAlpha(
-      instance,
-      username,
-      password,
-      code,
-      name,
-      context,
-      clientIp,
-      clientPort,
-      unidade_negocio,
-      apiKey,
-      queueId,
-    );
+    const aiResponse = await createAiAlpha(alphaPayload);
     const currentUser = username || 'Sistema';
     await createLogService(
       currentUser,
@@ -109,7 +118,6 @@ export async function createAiAlphaController(req, res) {
       instance,
     );
 
-    // 4. Retornar a resposta de sucesso
     res.status(200).json(aiResponse);
   } catch (error) {
     console.error('Erro ao criar IA:', error);

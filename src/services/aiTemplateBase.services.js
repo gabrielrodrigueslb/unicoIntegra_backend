@@ -22,7 +22,7 @@ const AI_TEMPLATE_DEFINITIONS = [
   {
     templateKey: 'alpha7',
     templateName: 'IA - Alpha 7',
-    sourcePath: 'ia/alpha7_ia_config.json',
+    sourcePath: 'ia/alpha7/alpha_ia_config.json',
     contentType: 'json-template',
   },
   {
@@ -200,17 +200,7 @@ export async function ensureCurrentAiTemplatesSeeded() {
 
   aiTemplateSeedPromise = (async () => {
     await ensureAiTemplateBasesTableExists();
-
-    const totalCurrent = await prisma.aiTemplateBase.count({
-      where: {
-        isCurrent: true,
-        templateKey: { in: AI_TEMPLATE_DEFINITIONS.map((i) => i.templateKey) },
-      },
-    });
-
-    if (totalCurrent < AI_TEMPLATE_DEFINITIONS.length) {
-      await syncCurrentAiTemplatesToDb();
-    }
+    await syncCurrentAiTemplatesToDb();
   })();
 
   try {

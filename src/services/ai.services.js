@@ -43,46 +43,42 @@ export async function createAi(instance, token) {
   }
 }
 
-export async function createAiAlpha(
+export async function createAiAlpha({
   instance,
   username,
   password,
   code2fa,
   name,
-  context,
-  clientIp,
-  clientPort,
+  nome_cliente,
+  porta_cliente,
   unidade_negocio,
   apiKey,
-  queueId,
-) {
+}) {
   const token = await authenticateInstance(instance, username, password, code2fa);
 
   const aiData = await createAi(instance, token);
   const iaId = aiData.id;
 
-  const ivrIds = await alpha7Functions(
+  const ivrIds = await alpha7Functions({
     instance,
     token,
-    clientIp,
-    clientPort,
+    nome_cliente,
+    porta_cliente,
     unidade_negocio,
     apiKey,
-    queueId,
     iaId,
-  );
+  });
 
   const iaPayload = await loadAiTemplateFromDbOrFile(
     'alpha7',
     {
       id: aiData.id,
       signaturename: name,
-      context: context || 'Você é um assistente...',
+      nome_cliente,
       preProcessId: ivrIds.preProcessId,
-      FiltraProdutoItemId: ivrIds.FiltraProdutoItemId,
       BuscaItensId: ivrIds.BuscaItensId,
     },
-    'ia/alpha7_ia_config.json',
+    'ia/alpha7/alpha_ia_config.json',
   );
 
   iaPayload.id = aiData.id;
