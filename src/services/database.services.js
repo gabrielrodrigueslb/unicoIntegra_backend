@@ -29,7 +29,7 @@ function normalizeOptionalCnpj(value) {
 
   if (digits.length !== 14) {
     throw createDatabaseError(
-      'Informe um CNPJ com 14 digitos para consultar a unidade de negocio.',
+      'Informe um CNPJ com 14 dígitos para consultar a unidade de negócio.',
       400,
     );
   }
@@ -132,7 +132,7 @@ async function findBusinessUnitByCnpj(client, cnpj) {
         requestedCnpj: normalizedCnpj,
         found: false,
         message:
-          'Nenhuma unidade de negocio foi encontrada para o CNPJ informado.',
+          'Nenhuma unidade de negócio foi encontrada para o CNPJ informado.',
         unit: null,
       };
     }
@@ -140,7 +140,7 @@ async function findBusinessUnitByCnpj(client, cnpj) {
     return {
       requestedCnpj: normalizedCnpj,
       found: true,
-      message: 'Unidade de negocio localizada com sucesso.',
+      message: 'Unidade de negócio localizada com sucesso.',
       unit: {
         id: Number(unit.id),
         status: unit.status || null,
@@ -153,9 +153,9 @@ async function findBusinessUnitByCnpj(client, cnpj) {
     };
   } catch (error) {
     const lookupMessageByCode = {
-      '42P01': 'A tabela unidadenegocio nao foi encontrada neste banco.',
+      '42P01': 'A tabela unidadenegocio não foi encontrada neste banco.',
       '42501':
-        'O usuario informado nao tem permissao para consultar a tabela unidadenegocio.',
+        'O usuário informado não tem permissão para consultar a tabela unidadenegocio.',
     };
 
     return {
@@ -163,7 +163,7 @@ async function findBusinessUnitByCnpj(client, cnpj) {
       found: false,
       message:
         lookupMessageByCode[error.code] ||
-        'A conexao foi validada, mas nao foi possivel consultar a unidade de negocio para o CNPJ informado.',
+        'A conexão foi validada, mas não foi possível consultar a unidade de negócio para o CNPJ informado.',
       unit: null,
     };
   }
@@ -191,7 +191,7 @@ function mapConnectionError(error) {
 function mapManagedDatabaseError(error, databaseName) {
   if (error.code === '42501') {
     return createDatabaseError(
-      `O usuario configurado nao tem permissao para consultar o banco ${databaseName}.`,
+      `O usuário configurado não tem permissão para consultar o banco ${databaseName}.`,
       403,
     );
   }
