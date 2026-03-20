@@ -1,4 +1,4 @@
-import { alpha7Functions, vannonFunctions } from './aiFunctions.js';
+import { alpha7Functions, vannonFunctions, vectorFunctions } from './aiFunctions.js';
 import { loadAiTemplateFromDbOrFile } from './aiTemplateBase.services.js';
 import {
   authenticateInstance,
@@ -107,11 +107,9 @@ export async function createAiVannon(
   password,
   code2fa,
   name,
-  context,
   clientEndpoint,
   clientName,
   apiKey,
-  queueId,
   cepLoja,
 ) {
   const token = await authenticateInstance(instance, username, password, code2fa);
@@ -125,7 +123,6 @@ export async function createAiVannon(
     clientEndpoint,
     clientName,
     apiKey,
-    queueId,
     iaId,
     cepLoja,
   );
@@ -135,10 +132,11 @@ export async function createAiVannon(
     {
       id: aiData.id,
       signaturename: name,
-      context: context || 'Você é um assistente...',
+      nome_cliente: clientName,
+      nome_cliente_var: clientName,
+      cliente_var: clientName,
       preProcessId: ivrIds.preProcessId,
-      envioItensId: ivrIds.envioItensId,
-      transfereId: ivrIds.transfereId,
+      busca_produtos_id: ivrIds.busca_produtos_id,
     },
     'ia/vannon/Vannon_ai_config.json',
   );
@@ -157,6 +155,63 @@ export async function createAiVannon(
   } catch (error) {
     console.error(
       'Falha ao configurar a IA Vannon:',
+      error.response ? error.response.data : error.message,
+    );
+    throw error;
+  }
+}
+
+export async function createAiVetor(
+  instance,
+  username,
+  password,
+  code2fa,
+  name,
+  clientEndpoint,
+  clientName,
+  apiKey,
+) {
+  const token = await authenticateInstance(instance, username, password, code2fa);
+
+  const aiData = await createAi(instance, token);
+  const iaId = aiData.id;
+
+  const ivrIds = await vectorFunctions(
+    instance,
+    token,
+    clientEndpoint,
+    clientName,
+    apiKey,
+    iaId,
+  );
+
+  const iaPayload = await loadAiTemplateFromDbOrFile(
+    'vetor',
+    {
+      id: aiData.id,
+      signaturename: name,
+      nome_cliente: clientName,
+      cliente_var: clientName,
+      preProcessId: ivrIds.preProcessId,
+      busca_produtos_id: ivrIds.busca_produtos_id,
+    },
+    'ia/vetor/vetor_ai_config.json',
+  );
+
+  iaPayload.id = aiData.id;
+
+  try {
+    const createVetorAiResponse = await updateAssistantItem(
+      instance,
+      iaPayload,
+      token,
+    );
+    console.log('IA Vetor configurada com sucesso!:', createVetorAiResponse);
+    await tryCreateAiVersionSnapshot(instance, iaPayload);
+    return createVetorAiResponse;
+  } catch (error) {
+    console.error(
+      'Falha ao configurar a IA Vetor:',
       error.response ? error.response.data : error.message,
     );
     throw error;

@@ -1,4 +1,9 @@
-import { createAiAlpha, createAiVannon, createDefaultAi } from '../services/ai.services.js';
+import {
+  createAiAlpha,
+  createAiVannon,
+  createAiVetor,
+  createDefaultAi,
+} from '../services/ai.services.js';
 import {
   listAiTemplateBases,
   syncCurrentAiTemplatesToDb,
@@ -137,10 +142,8 @@ export async function createAiVannonController(req, res) {
       username,
       password,
       name,
-      context,
       clientEndpoint,
       apiKey,
-      queueId,
       code,
       cepLoja,
       clientName
@@ -167,10 +170,20 @@ export async function createAiVannonController(req, res) {
         .status(400)
         .json({ message: 'O campo "name" (signaturename) é obrigatório' });
     }
-    if (!queueId) {
+    if (!clientName) {
       return res
         .status(400)
-        .json({ message: 'O campo "queueId" é obrigatório' });
+        .json({ message: 'O campo "clientName" é obrigatório' });
+    }
+    if (!clientEndpoint) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "clientEndpoint" é obrigatório' });
+    }
+    if (!cepLoja) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "cepLoja" é obrigatório' });
     }
     if (!apiKey) {
       return res
@@ -188,11 +201,9 @@ export async function createAiVannonController(req, res) {
       password,
       code,
       name,
-      context,
       clientEndpoint,
       clientName,
       apiKey,
-      queueId,
       cepLoja
     );
     const currentUser = username || 'Sistema';
@@ -203,6 +214,86 @@ export async function createAiVannonController(req, res) {
     );
 
     // 4. Retornar a resposta de sucesso
+    res.status(200).json(aiResponse);
+  } catch (error) {
+    console.error('Erro ao criar IA:', error);
+    const details = toReadableError(error);
+    res.status(500).json({
+      message: `Ocorreu um erro ao criar a IA. ${details}`,
+      error: details,
+    });
+  }
+}
+
+export async function createAiVetorController(req, res) {
+  try {
+    const {
+      instance,
+      username,
+      password,
+      name,
+      clientEndpoint,
+      apiKey,
+      code,
+      clientName,
+    } = req.body;
+
+    if (!instance) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "instance" Ã© obrigatÃ³rio' });
+    }
+    if (!username) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "username" Ã© obrigatÃ³rio' });
+    }
+    if (!password) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "password" Ã© obrigatÃ³rio' });
+    }
+    if (!name) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "name" (signaturename) Ã© obrigatÃ³rio' });
+    }
+    if (!clientName) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "clientName" Ã© obrigatÃ³rio' });
+    }
+    if (!clientEndpoint) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "clientEndpoint" Ã© obrigatÃ³rio' });
+    }
+    if (!apiKey) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "apiKey" Ã© obrigatÃ³rio' });
+    }
+    if (!code) {
+      return res.status(400).json({ message: 'O campo "code" Ã© obrigatÃ³rio' });
+    }
+
+    const aiResponse = await createAiVetor(
+      instance,
+      username,
+      password,
+      code,
+      name,
+      clientEndpoint,
+      clientName,
+      apiKey,
+    );
+    const currentUser = username || 'Sistema';
+    await createLogService(
+      currentUser,
+      `Criou a IA da Vetor - ${name}`,
+      instance,
+    );
+
     res.status(200).json(aiResponse);
   } catch (error) {
     console.error('Erro ao criar IA:', error);

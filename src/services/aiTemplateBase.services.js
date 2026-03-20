@@ -31,6 +31,12 @@ const AI_TEMPLATE_DEFINITIONS = [
     sourcePath: 'ia/vannon/Vannon_ai_config.json',
     contentType: 'json-template',
   },
+  {
+    templateKey: 'vetor',
+    templateName: 'IA - Vetor',
+    sourcePath: 'ia/vetor/vetor_ai_config.json',
+    contentType: 'json-template',
+  },
 ];
 
 let aiTemplateBasesTableReady = false;

@@ -8,6 +8,11 @@ function getDominio(url) {
   return hostname.split('.')[0];
 }
 
+function normalizeBaseUrl(url) {
+  const normalized = url.startsWith('http') ? url : `https://${url}`;
+  return normalized.replace(/\/+$/, '');
+}
+
 async function installTemplate({
   instance,
   token,
@@ -90,15 +95,15 @@ export async function alpha7Functions({
     });
     console.log(`Ura da IA - AB foi criada. ID: ${UraIaAbId}`);
 
-    console.log('--- Passo 5: Pré processamento ---');
+    console.log('--- Passo 5: Pre processamento ---');
     const preProcessId = await installTemplate({
       instance,
       token,
       templatePath: 'ia/alpha7/alpha_pre_processamento.json',
       variables: commonVars,
-      errorMessage: 'Falha ao criar pré processamento',
+      errorMessage: 'Falha ao criar pre processamento',
     });
-    console.log(`Pré processamento criado. ID: ${preProcessId}`);
+    console.log(`Pre processamento criado. ID: ${preProcessId}`);
 
     return {
       success: true,
@@ -110,7 +115,7 @@ export async function alpha7Functions({
     };
   } catch (error) {
     console.error(
-      'Erro crítico em alpha7Functions:',
+      'Erro critico em alpha7Functions:',
       error.response?.data || error.message,
     );
     throw error;
@@ -123,103 +128,184 @@ export async function vannonFunctions(
   clientEndpoint,
   clientName,
   apiKey,
-  queueId,
   iaId,
   cepLoja,
 ) {
   try {
+    const endpoint_var = normalizeBaseUrl(instance);
+    const client_endpoint_var = getDominio(clientEndpoint);
+
     const vannonInstallVars = {
-      clientEndpoint,
-      clientName,
-      clientEndpointUnico: getDominio(instance),
-      clientQueueId: queueId,
-      iaId,
-      clientApiKey: apiKey,
+      endpoint_var,
+      api_var: apiKey,
+      cliente_var: clientName,
+      client_endpoint_var,
+      cep_var: cepLoja,
+      ia_id: iaId,
     };
 
     console.log('--- Passo 1: Download Image ---');
-    const idDownloadImage = await installTemplate({
+    const download_image_id = await installTemplate({
       instance,
       token,
       templatePath: 'ia/vannon/download_de_imagens_IA_Vannon.json',
       variables: vannonInstallVars,
       errorMessage: 'Falha ao criar Download Image',
     });
-    console.log(`Download Image criado. ID: ${idDownloadImage}`);
+    console.log(`Download Image criado. ID: ${download_image_id}`);
 
-    console.log('--- Passo 2: pré processamento ---');
+    console.log('--- Passo 2: Busca de produtos ---');
+    const busca_produtos_id = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ia/vannon/busca_produtos.json',
+      variables: {
+        ...vannonInstallVars,
+        download_image_id,
+      },
+      errorMessage: 'Falha ao criar Busca de produtos',
+    });
+    console.log(`Busca de produtos criada. ID: ${busca_produtos_id}`);
+
+    console.log('--- Passo 3: Pre processamento ---');
     const preProcessId = await installTemplate({
       instance,
       token,
       templatePath: 'ia/vannon/pre_processamento.json',
       variables: vannonInstallVars,
-      errorMessage: 'Falha ao criar Pré processamento',
+      errorMessage: 'Falha ao criar Pre processamento',
     });
-    console.log(`Pré processamento criado. ID: ${preProcessId}`);
+    console.log(`Pre processamento criado. ID: ${preProcessId}`);
 
-    console.log('--- Passo 3: Envio de Itens ---');
-    const envioItensId = await installTemplate({
-      instance,
-      token,
-      templatePath: 'ia/vannon/envio_itens_vannon.json',
-      variables: {
-        ...vannonInstallVars,
-        idDownloadImage,
-      },
-      errorMessage: 'Falha ao criar envioItens de Itens',
-    });
-    console.log(`envioItens criado. ID: ${envioItensId}`);
-
-    console.log('--- Passo 4: Envio de Itens ---');
-    const transfereId = await installTemplate({
-      instance,
-      token,
-      templatePath: 'ia/vannon/transfere_para_atendente_encerrar.json',
-      errorMessage: 'Falha ao criar Transfererir para atendente',
-    });
-    console.log(`Transfererir para atendente criado. ID: ${transfereId}`);
-
-    console.log('--- Passo 5: URA IA ---');
-    const UraIaId = await installTemplate({
+    console.log('--- Passo 4: URA IA ---');
+    const ura_ia_id = await installTemplate({
       instance,
       token,
       templatePath: 'ia/vannon/ura_vannon.json',
-      variables: {
-        ...vannonInstallVars,
-        iaId,
-        cepLoja,
-      },
-      errorMessage: 'Falha ao criar Ura da IA - AB',
+      variables: vannonInstallVars,
+      errorMessage: 'Falha ao criar Ura da IA',
     });
-    console.log(`Ura da IA - AB foi criada. ID: ${UraIaId}`);
+    console.log(`Ura da IA criada. ID: ${ura_ia_id}`);
 
-    console.log('--- Passo 6: URA AB ---');
-    const UraAbId = await installTemplate({
+    console.log('--- Passo 5: URA AB ---');
+    const ura_ab_id = await installTemplate({
       instance,
       token,
-      templatePath: 'ia/vannon/ura_ab.json',
+      templatePath: 'ia/vannon/vannon_ab.json',
       variables: {
         ...vannonInstallVars,
-        UraIaId,
-        idDownloadImage,
-        clientName,
+        ura_ia_id,
       },
       errorMessage: 'Falha ao criar Ura da IA - AB',
     });
-    console.log(`Ura da IA - AB foi criada. ID: ${UraAbId}`);
+    console.log(`Ura da IA - AB criada. ID: ${ura_ab_id}`);
 
     return {
       success: true,
-      downloadImageId: idDownloadImage,
+      downloadImageId: download_image_id,
+      download_image_id,
       preProcessId,
-      envioItensId,
-      transfereId,
-      UraIaId,
-      UraAbId,
+      busca_produtos_id,
+      ura_ia_id,
+      ura_ab_id,
     };
   } catch (error) {
     console.error(
-      'Erro crítico em alpha7Functions:',
+      'Erro critico em vannonFunctions:',
+      error.response?.data || error.message,
+    );
+    throw error;
+  }
+}
+
+export async function vectorFunctions(
+  instance,
+  token,
+  clientEndpoint,
+  clientName,
+  apiKey,
+  iaId,
+) {
+  try {
+    const endpoint_var = normalizeBaseUrl(instance);
+    const client_endpoint_var = getDominio(clientEndpoint);
+
+    const vetorInstallVars = {
+      endpoint_var,
+      api_var: apiKey,
+      cliente_var: clientName,
+      client_endpoint_var,
+      ia_id: iaId,
+    };
+
+    console.log('--- Passo 1: Download Image ---');
+    const download_image_id = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ia/vetor/download_de_imagens_IA_Vannon.json',
+      variables: vetorInstallVars,
+      errorMessage: 'Falha ao criar Download Image',
+    });
+    console.log(`Download Image criado. ID: ${download_image_id}`);
+
+    console.log('--- Passo 2: Busca de produtos ---');
+    const busca_produtos_id = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ia/vetor/busca_produtos.json',
+      variables: {
+        ...vetorInstallVars,
+        download_image_id,
+      },
+      errorMessage: 'Falha ao criar Busca de produtos',
+    });
+    console.log(`Busca de produtos criada. ID: ${busca_produtos_id}`);
+
+    console.log('--- Passo 3: Pre processamento ---');
+    const preProcessId = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ia/vetor/pre_processamento.json',
+      variables: vetorInstallVars,
+      errorMessage: 'Falha ao criar Pre processamento',
+    });
+    console.log(`Pre processamento criado. ID: ${preProcessId}`);
+
+    console.log('--- Passo 4: URA IA ---');
+    const ura_ia_id = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ia/vetor/ura_vetor.json',
+      variables: vetorInstallVars,
+      errorMessage: 'Falha ao criar Ura da IA',
+    });
+    console.log(`Ura da IA criada. ID: ${ura_ia_id}`);
+
+    console.log('--- Passo 5: URA AB ---');
+    const ura_ab_id = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ia/vetor/vannon_ab.json',
+      variables: {
+        ...vetorInstallVars,
+        ura_ia_id,
+      },
+      errorMessage: 'Falha ao criar Ura da IA - AB',
+    });
+    console.log(`Ura da IA - AB criada. ID: ${ura_ab_id}`);
+
+    return {
+      success: true,
+      downloadImageId: download_image_id,
+      download_image_id,
+      preProcessId,
+      busca_produtos_id,
+      ura_ia_id,
+      ura_ab_id,
+    };
+  } catch (error) {
+    console.error(
+      'Erro critico em vectorFunctions:',
       error.response?.data || error.message,
     );
     throw error;
