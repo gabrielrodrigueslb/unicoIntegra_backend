@@ -132,8 +132,6 @@ export async function createAiVannon(
     {
       id: aiData.id,
       signaturename: name,
-      nome_cliente: clientName,
-      nome_cliente_var: clientName,
       cliente_var: clientName,
       preProcessId: ivrIds.preProcessId,
       busca_produtos_id: ivrIds.busca_produtos_id,
@@ -167,7 +165,7 @@ export async function createAiVetor(
   password,
   code2fa,
   name,
-  clientEndpoint,
+  vetorToken,
   clientName,
   apiKey,
 ) {
@@ -179,7 +177,7 @@ export async function createAiVetor(
   const ivrIds = await vectorFunctions(
     instance,
     token,
-    clientEndpoint,
+    vetorToken,
     clientName,
     apiKey,
     iaId,
@@ -190,7 +188,6 @@ export async function createAiVetor(
     {
       id: aiData.id,
       signaturename: name,
-      nome_cliente: clientName,
       cliente_var: clientName,
       preProcessId: ivrIds.preProcessId,
       busca_produtos_id: ivrIds.busca_produtos_id,

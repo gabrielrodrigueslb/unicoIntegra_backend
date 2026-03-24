@@ -221,20 +221,19 @@ export async function vannonFunctions(
 export async function vectorFunctions(
   instance,
   token,
-  clientEndpoint,
+  vetorToken,
   clientName,
   apiKey,
   iaId,
 ) {
   try {
     const endpoint_var = normalizeBaseUrl(instance);
-    const client_endpoint_var = getDominio(clientEndpoint);
 
     const vetorInstallVars = {
       endpoint_var,
       api_var: apiKey,
+      var_vetorKey: vetorToken,
       cliente_var: clientName,
-      client_endpoint_var,
       ia_id: iaId,
     };
 

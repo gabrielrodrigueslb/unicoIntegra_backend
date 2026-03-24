@@ -232,7 +232,7 @@ export async function createAiVetorController(req, res) {
       username,
       password,
       name,
-      clientEndpoint,
+      vetorToken,
       apiKey,
       code,
       clientName,
@@ -241,40 +241,40 @@ export async function createAiVetorController(req, res) {
     if (!instance) {
       return res
         .status(400)
-        .json({ message: 'O campo "instance" Ã© obrigatÃ³rio' });
+        .json({ message: 'O campo "instance" é obrigatório' });
     }
     if (!username) {
       return res
         .status(400)
-        .json({ message: 'O campo "username" Ã© obrigatÃ³rio' });
+        .json({ message: 'O campo "username" é obrigatório' });
     }
     if (!password) {
       return res
         .status(400)
-        .json({ message: 'O campo "password" Ã© obrigatÃ³rio' });
+        .json({ message: 'O campo "password" é obrigatório' });
     }
     if (!name) {
       return res
         .status(400)
-        .json({ message: 'O campo "name" (signaturename) Ã© obrigatÃ³rio' });
+        .json({ message: 'O campo "name" (signaturename) é obrigatório' });
     }
     if (!clientName) {
       return res
         .status(400)
-        .json({ message: 'O campo "clientName" Ã© obrigatÃ³rio' });
+        .json({ message: 'O campo "clientName" é obrigatório' });
     }
-    if (!clientEndpoint) {
+    if (!vetorToken) {
       return res
         .status(400)
-        .json({ message: 'O campo "clientEndpoint" Ã© obrigatÃ³rio' });
+        .json({ message: 'O campo "clientEndpoint" é obrigatório' });
     }
     if (!apiKey) {
       return res
         .status(400)
-        .json({ message: 'O campo "apiKey" Ã© obrigatÃ³rio' });
+        .json({ message: 'O campo "apiKey" é obrigatório' });
     }
     if (!code) {
-      return res.status(400).json({ message: 'O campo "code" Ã© obrigatÃ³rio' });
+      return res.status(400).json({ message: 'O campo "code" é obrigatório' });
     }
 
     const aiResponse = await createAiVetor(
@@ -283,7 +283,7 @@ export async function createAiVetorController(req, res) {
       password,
       code,
       name,
-      clientEndpoint,
+      vetorToken,
       clientName,
       apiKey,
     );
