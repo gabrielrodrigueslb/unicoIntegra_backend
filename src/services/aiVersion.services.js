@@ -1,4 +1,3 @@
-import { prisma } from '../../prisma/PrismaClient.js';
 import { adminPool } from '../database/adminPool.js';
 
 const MAX_VERSION_RETRIES = 3;
@@ -133,16 +132,30 @@ export async function listAiVersions({
   const useLatestOnly = parseBooleanFlag(latestOnly, true);
   const normalizedInstance =
     typeof instance === 'string' && instance.trim() ? instance.trim() : null;
-  const where = normalizedInstance ? { instance: normalizedInstance } : undefined;
   const prismaTake = useLatestOnly
     ? Math.min(Math.max(parsedLimit * 10, parsedLimit), 5000)
     : parsedLimit;
 
-  const rows = await prisma.aiVersion.findMany({
-    where,
-    take: prismaTake,
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-  });
+  const params = [];
+  const clauses = [];
+
+  if (normalizedInstance) {
+    params.push(normalizedInstance);
+    clauses.push(`"instance" = $${params.length}::varchar(255)`);
+  }
+
+  params.push(prismaTake);
+
+  const query = `
+    SELECT id, "instance", "version", "payload", "createdAt"
+    FROM sistema.ai_versions
+    ${clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : ''}
+    ORDER BY "createdAt" DESC, id DESC
+    LIMIT $${params.length}::int
+  `;
+
+  const result = await adminPool.query(query, params);
+  const rows = result.rows ?? [];
 
   const normalizedRows = rows.map((row) => {
     const payload =
