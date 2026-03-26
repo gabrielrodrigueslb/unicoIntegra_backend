@@ -8,6 +8,10 @@ router.options('/create-ai/alpha', (req, res) => {
   res.sendStatus(204);
 });
 
+router.options('/create-ai/trier', (req, res) => {
+  res.sendStatus(204);
+});
+
 router.options('/create-ai/vannon', (req, res) => {
   res.sendStatus(204);
 });
@@ -21,6 +25,7 @@ router.options('/create-ai', (req, res) => {
 });
 
 router.post('/create-ai/alpha', aiController.createAiAlphaController);
+router.post('/create-ai/trier', aiController.createAiTrierController);
 router.post('/create-ai/vannon', aiController.createAiVannonController);
 router.post('/create-ai/vetor', aiController.createAiVetorController);
 

@@ -26,6 +26,12 @@ const AI_TEMPLATE_DEFINITIONS = [
     contentType: 'json-template',
   },
   {
+    templateKey: 'trier',
+    templateName: 'IA - Trier',
+    sourcePath: 'ia/trier/trier_ia_config.json',
+    contentType: 'json-template',
+  },
+  {
     templateKey: 'vannon',
     templateName: 'IA - Vannon',
     sourcePath: 'ia/vannon/Vannon_ai_config.json',

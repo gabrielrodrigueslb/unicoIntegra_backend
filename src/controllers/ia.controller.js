@@ -1,5 +1,6 @@
 import {
   createAiAlpha,
+  createAiTrier,
   createAiVannon,
   createAiVetor,
   createDefaultAi,
@@ -120,6 +121,91 @@ export async function createAiAlphaController(req, res) {
     await createLogService(
       currentUser,
       `Criou a IA do alpha 7 - ${name}`,
+      instance,
+    );
+
+    res.status(200).json(aiResponse);
+  } catch (error) {
+    console.error('Erro ao criar IA:', error);
+    const details = toReadableError(error);
+    res.status(500).json({
+      message: `Ocorreu um erro ao criar a IA. ${details}`,
+      error: details,
+    });
+  }
+}
+
+export async function createAiTrierController(req, res) {
+  try {
+    const {
+      instance,
+      username,
+      password,
+      name,
+      nome_cliente,
+      nomeCliente,
+      porta_cliente,
+      clientPort,
+      clientName,
+      apiKey,
+      code,
+    } = req.body;
+
+    const trierPayload = {
+      instance,
+      username,
+      password,
+      code2fa: code,
+      name,
+      nome_cliente: nome_cliente || nomeCliente || clientName,
+      porta_cliente: clientPort || porta_cliente,
+      apiKey,
+    };
+
+    if (!instance) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "instance" é obrigatório' });
+    }
+    if (!username) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "username" é obrigatório' });
+    }
+    if (!password) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "password" é obrigatório' });
+    }
+    if (!name) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "name" (signaturename) é obrigatório' });
+    }
+    if (!trierPayload.nome_cliente) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "nome_cliente" é obrigatório' });
+    }
+    if (!trierPayload.porta_cliente) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "porta_cliente" é obrigatório' });
+    }
+    if (!apiKey) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "apiKey" é obrigatório' });
+    }
+    if (!trierPayload.code2fa) {
+      return res.status(400).json({ message: 'O campo "code" é obrigatório' });
+    }
+
+    const aiResponse = await createAiTrier(trierPayload);
+    const currentUser = username || 'Sistema';
+    await createLogService(
+      currentUser,
+      `Criou a IA da Trier - ${name}`,
       instance,
     );
 

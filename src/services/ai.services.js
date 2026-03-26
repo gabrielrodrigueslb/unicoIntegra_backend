@@ -1,4 +1,9 @@
-import { alpha7Functions, vannonFunctions, vectorFunctions } from './aiFunctions.js';
+import {
+  alpha7Functions,
+  trierFunctions,
+  vannonFunctions,
+  vectorFunctions,
+} from './aiFunctions.js';
 import { loadAiTemplateFromDbOrFile } from './aiTemplateBase.services.js';
 import {
   authenticateInstance,
@@ -95,6 +100,63 @@ export async function createAiAlpha({
   } catch (error) {
     console.error(
       'Falha ao configurar a IA Alpha7:',
+      error.response ? error.response.data : error.message,
+    );
+    throw error;
+  }
+}
+
+export async function createAiTrier({
+  instance,
+  username,
+  password,
+  code2fa,
+  name,
+  nome_cliente,
+  porta_cliente,
+  apiKey,
+}) {
+  const token = await authenticateInstance(instance, username, password, code2fa);
+
+  const aiData = await createAi(instance, token);
+  const iaId = aiData.id;
+
+  const ivrIds = await trierFunctions({
+    instance,
+    token,
+    nome_cliente,
+    porta_cliente,
+    apiKey,
+    iaId,
+  });
+
+  const iaPayload = await loadAiTemplateFromDbOrFile(
+    'trier',
+    {
+      id: aiData.id,
+      signaturename: name,
+      nome_cliente,
+      nome_cliente_var: nome_cliente,
+      preProcessId: ivrIds.preProcessId,
+      BuscaItensId: ivrIds.BuscaItensId,
+    },
+    'ia/trier/trier_ia_config.json',
+  );
+
+  iaPayload.id = aiData.id;
+
+  try {
+    const createTrierAiResponse = await updateAssistantItem(
+      instance,
+      iaPayload,
+      token,
+    );
+    console.log('IA Trier configurada com sucesso!:', createTrierAiResponse);
+    await tryCreateAiVersionSnapshot(instance, iaPayload);
+    return createTrierAiResponse;
+  } catch (error) {
+    console.error(
+      'Falha ao configurar a IA Trier:',
       error.response ? error.response.data : error.message,
     );
     throw error;

@@ -122,6 +122,96 @@ export async function alpha7Functions({
   }
 }
 
+export async function trierFunctions({
+  instance,
+  token,
+  nome_cliente,
+  porta_cliente,
+  apiKey,
+  iaId,
+}) {
+  try {
+    const commonVars = {
+      url_cliente: instance,
+      api_key: apiKey,
+      nome_cliente,
+      porta_cliente,
+      ia_id: iaId,
+    };
+
+    console.log('--- Passo 1: Download Image ---');
+    const download_img_id = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ia/trier/trier_download_imagem.json',
+      variables: commonVars,
+      errorMessage: 'Falha ao criar Download Image',
+    });
+    console.log(`Download Image criado. ID: ${download_img_id}`);
+
+    console.log('--- Passo 2: busca de produtos ---');
+    const BuscaItensId = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ia/trier/trier_busca_produtos.json',
+      variables: {
+        ...commonVars,
+        download_img_id,
+      },
+      errorMessage: 'Falha ao criar BuscaItens de Itens',
+    });
+    console.log(`BuscaItens de Itens criado. ID: ${BuscaItensId}`);
+
+    console.log('--- Passo 3: URA IA ---');
+    const ura_ia_id = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ia/trier/trier_ura.json',
+      variables: commonVars,
+      errorMessage: 'Falha ao criar Ura da IA',
+    });
+    console.log(`Ura da foi criada. ID: ${ura_ia_id}`);
+
+    console.log('--- Passo 4: URA IA - AB ---');
+    const UraIaAbId = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ia/trier/trier_ab.json',
+      variables: {
+        ...commonVars,
+        ura_ia_id,
+      },
+      errorMessage: 'Falha ao criar Ura da IA - AB',
+    });
+    console.log(`Ura da IA - AB foi criada. ID: ${UraIaAbId}`);
+
+    console.log('--- Passo 5: Pre processamento ---');
+    const preProcessId = await installTemplate({
+      instance,
+      token,
+      templatePath: 'ia/trier/trier_pre_processamento.json',
+      variables: commonVars,
+      errorMessage: 'Falha ao criar pre processamento',
+    });
+    console.log(`Pre processamento criado. ID: ${preProcessId}`);
+
+    return {
+      success: true,
+      downloadImageId: download_img_id,
+      BuscaItensId,
+      uraIaId: ura_ia_id,
+      uraIaAbId: UraIaAbId,
+      preProcessId,
+    };
+  } catch (error) {
+    console.error(
+      'Erro critico em trierFunctions:',
+      error.response?.data || error.message,
+    );
+    throw error;
+  }
+}
+
 export async function vannonFunctions(
   instance,
   token,
