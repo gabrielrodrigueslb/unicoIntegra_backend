@@ -23,31 +23,60 @@ const downloadsPath = path.join(projectRoot, 'downloads');
 
 const allowedOrigins = env.CORS_ALLOWED_ORIGINS;
 
+function normalizeOrigin(origin = '') {
+  return String(origin).trim().replace(/\/+$/g, '').toLowerCase();
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function isOriginAllowed(origin) {
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  return allowedOrigins.some((allowedOrigin) => {
+    const normalizedAllowedOrigin = normalizeOrigin(allowedOrigin);
+
+    if (!normalizedAllowedOrigin) {
+      return false;
+    }
+
+    if (normalizedAllowedOrigin === '*') {
+      return true;
+    }
+
+    if (normalizedAllowedOrigin.includes('*')) {
+      const wildcardPattern = `^${escapeRegExp(normalizedAllowedOrigin).replace(/\\\*/g, '.*')}$`;
+      return new RegExp(wildcardPattern, 'i').test(normalizedOrigin);
+    }
+
+    return normalizedAllowedOrigin === normalizedOrigin;
+  });
+}
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (isOriginAllowed(origin)) {
+      return callback(null, true);
+    }
+
+    console.warn(`[CORS] Origem bloqueada: ${origin}`);
+    return callback(null, false);
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
+  credentials: true,
+  optionsSuccessStatus: 204,
+};
+
 export const app = express();
 
-app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin) {
-        return callback(null, true);
-      }
-
-      if (!allowedOrigins.includes(origin)) {
-        return callback(
-          new Error(
-            'A politica de CORS deste site nao permite acesso desta origem.',
-          ),
-          false,
-        );
-      }
-
-      return callback(null, true);
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
-    credentials: true,
-  }),
-);
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 
 app.use(
   helmet({
