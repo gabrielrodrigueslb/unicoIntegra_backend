@@ -1,0 +1,26 @@
+{
+  "name": "Trier Sistemas",
+  "description": "Versão de teste para extensão de Integrações",
+  "version": "1.0",
+  "manifest_version": 3,
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "index.html",
+    "default_title": "Extension"
+  },
+  "icons": {
+    "16": "logo-extensão.png",
+    "48": "logo-extensão.png",
+    "128": "logo-extensão.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  },
+  "permissions": ["storage", "tabs", "activeTab", "webRequest", "alarms"],
+  "host_permissions": [
+    "https://api-sgf-gateway.triersistemas.com.br/*"
+  ]
+}

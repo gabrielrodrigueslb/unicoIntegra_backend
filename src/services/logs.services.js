@@ -8,12 +8,26 @@ import { prisma } from '../../prisma/PrismaClient.js';
  * @param {string} action - Ação realizada
  * @param {string} target - Alvo da ação (opcional)
  */
-export const createLogService = async (userName, action, target = null) => {
+function buildLogAction(action, options = {}) {
+  if (!options.generatedByAi) {
+    return action;
+  }
+
+  const sourceLabel = options.source ? ` via ${options.source}` : '';
+  return `${action} [gerado por IA${sourceLabel}]`;
+}
+
+export const createLogService = async (
+  userName,
+  action,
+  target = null,
+  options = {},
+) => {
   try {
     await prisma.systemLog.create({
       data: {
         userName,
-        action,
+        action: buildLogAction(action, options),
         target
       }
     });

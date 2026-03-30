@@ -5,6 +5,7 @@
   "main": "./src/server.js",
   "type": "module",
   "scripts": {
+    "start": "node src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --ignore builds-temporarios --ignore node_modules src/server.js"
   },
@@ -22,6 +23,7 @@
     "fs-extra": "^11.3.1",
     "helmet": "^6.1.2",
     "nodemon": "^3.1.10",
+    "openai": "^6.33.0",
     "pg": "^8.16.3",
     "rimraf": "^6.0.1"
   },
