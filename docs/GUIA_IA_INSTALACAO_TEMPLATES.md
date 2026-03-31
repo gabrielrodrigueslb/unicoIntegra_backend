@@ -91,7 +91,25 @@ E envia:
 }
 ```
 
-### 4) Placeholders de template
+### 4) Pré-requisito operacional comum: gerar a chave da OpenAI
+
+Antes de criar serviço ou instalar qualquer IA, oriente o operador a gerar e armazenar a chave da OpenAI.
+
+Passo a passo recomendado:
+
+1. Acessar `https://platform.openai.com/`
+2. Fazer login ou criar conta com Google, Microsoft ou e-mail e senha
+3. Entrar em `https://platform.openai.com/api-keys` ou usar o menu do perfil em `View API keys`
+4. Clicar em `Create new secret key` e nomear a chave
+5. Copiar o token gerado (`sk-...`) e salvar em local seguro
+
+Regras para a IA:
+
+- avisar que a chave aparece apenas uma vez;
+- orientar o armazenamento em `.env` como `OPENAI_API_KEY=sk-...`;
+- se houver campo `OpenAI API Key` no cadastro do serviço, instruir o operador a preencher com a chave recém-gerada antes de prosseguir.
+
+### 5) Placeholders de template
 
 Nem todo placeholder `{{...}}` deve ser preenchido no momento da instalação.
 
@@ -829,10 +847,11 @@ async function criarIaPorTemplate(input: CriarIaInput) {
 1. Confirmar `templateKey` e se está ativo para instalação automática.
 2. Confirmar `instance` com `https://` e sem barra final.
 3. Confirmar credenciais da instância (`username`, `password`, `code`).
-4. Coletar todos os campos específicos do template.
-5. Diferenciar placeholders de configuração vs runtime.
-6. Enviar para o endpoint correto (`/install/integration` ou `/api/ia/create-ai*`).
-7. Em caso de erro, retornar:
+4. Confirmar que a `OPENAI_API_KEY` foi gerada e armazenada com segurança antes da criação do serviço ou da IA.
+5. Coletar todos os campos específicos do template.
+6. Diferenciar placeholders de configuração vs runtime.
+7. Enviar para o endpoint correto (`/install/integration` ou `/api/ia/create-ai*`).
+8. Em caso de erro, retornar:
    - endpoint chamado
    - status HTTP
    - mensagem do backend

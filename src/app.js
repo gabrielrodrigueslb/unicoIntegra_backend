@@ -15,6 +15,7 @@ import databaseRoutes from './routes/database.routes.js';
 import newsRoutes from './routes/news.routes.js';
 import logsRoutes from './routes/logs.routes.js';
 import chatRoutes from './routes/chat.routes.js';
+import extensionRoutes from './routes/extensions.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -69,6 +70,7 @@ const corsOptions = {
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
+  exposedHeaders: ['Content-Disposition'],
   credentials: true,
   optionsSuccessStatus: 204,
 };
@@ -191,6 +193,7 @@ app.use('/api/databases', databaseRoutes);
 app.use('/install', installingRoutes);
 app.use('/api/ia', createAiRoutes);
 app.use('/api/news', newsRoutes);
+app.use('/api/extensions', extensionRoutes);
 app.use('/api', logsRoutes);
 app.use('/chat', chatRoutes);
 

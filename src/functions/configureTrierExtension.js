@@ -29,7 +29,7 @@ function ensureTrailingSlash(url) {
   const trimmed = String(url || '').trim();
 
   if (!trimmed) {
-    throw new Error('Informe a URL da instancia do cliente.');
+    throw new Error('Informe a URL da instância do cliente.');
   }
 
   return trimmed.endsWith('/') ? trimmed : `${trimmed}/`;
@@ -45,8 +45,83 @@ function buildSafeFileSlug(url) {
     .toLowerCase();
 }
 
+function sanitizeFileNameSegment(value) {
+  return String(value || '')
+    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, '-')
+    .replace(/\s+/g, ' ')
+    .replace(/-+/g, '-')
+    .trim()
+    .replace(/[. ]+$/g, '');
+}
+
+function buildInstanceDisplayName(url) {
+  const trimmed = String(url || '').trim();
+
+  if (!trimmed) {
+    return 'cliente';
+  }
+
+  try {
+    const normalized = trimmed.startsWith('http') ? trimmed : `https://${trimmed}`;
+    const { hostname } = new URL(normalized);
+    return sanitizeFileNameSegment(hostname.replace(/^www\./i, '')) || 'cliente';
+  } catch {
+    return (
+      sanitizeFileNameSegment(
+        trimmed.replace(/^https?:\/\//i, '').replace(/\/+$/g, ''),
+      ) || 'cliente'
+    );
+  }
+}
+
+function buildTokenHint(token) {
+  const trimmed = String(token || '').trim();
+
+  if (!trimmed) {
+    return 'token';
+  }
+
+  if (trimmed.length <= 8) {
+    return sanitizeFileNameSegment(trimmed) || 'token';
+  }
+
+  return (
+    sanitizeFileNameSegment(`${trimmed.slice(0, 4)}-${trimmed.slice(-4)}`) ||
+    'token'
+  );
+}
+
+function buildExtensionDisplayName(url, token) {
+  return `${buildInstanceDisplayName(url)} ${buildTokenHint(token)}`;
+}
+
+function buildZipBaseName(url, token) {
+  return `Trier extensão - ${buildExtensionDisplayName(url, token)}`;
+}
+
 async function pathExists(targetPath) {
   return fsExtra.pathExists(targetPath);
+}
+
+async function getAvailableDownloadTarget(baseName, extension = '.zip') {
+  await fsExtra.ensureDir(downloadsDirectory);
+
+  let attempt = 0;
+
+  while (true) {
+    const suffix = attempt === 0 ? '' : ` (${attempt + 1})`;
+    const fileName = `${baseName}${suffix}${extension}`;
+    const outputPath = path.join(downloadsDirectory, fileName);
+
+    if (!(await pathExists(outputPath))) {
+      return {
+        fileName,
+        outputPath,
+      };
+    }
+
+    attempt += 1;
+  }
 }
 
 async function resolveTemplateSource() {
@@ -70,7 +145,7 @@ async function resolveTemplateSource() {
   }
 
   throw new Error(
-    'Nao encontrei o template da extensao Trier. Verifique back/templates/trier-inovafarma ou configure TRIER_EXTENSION_TEMPLATE_DIR/TRIER_EXTENSION_TEMPLATE_ZIP no back/.env.',
+    'Não encontrei o template da extensão Trier. Verifique back/templates/trier-inovafarma ou configure TRIER_EXTENSION_TEMPLATE_DIR/TRIER_EXTENSION_TEMPLATE_ZIP no back/.env.',
   );
 }
 
@@ -124,7 +199,7 @@ function runCommand(command, args, options = {}) {
 async function extractZipToDirectory(zipPath, destinationPath) {
   if (process.platform !== 'win32') {
     throw new Error(
-      'Extracao automatica do ZIP da extensao Trier ainda nao esta configurada para este sistema operacional. Em Linux, prefira TRIER_EXTENSION_TEMPLATE_DIR ou o template interno em back/templates/trier-inovafarma.',
+      'Extração automática do ZIP da extensão Trier ainda não está configurada para este sistema operacional. Em Linux, prefira TRIER_EXTENSION_TEMPLATE_DIR ou o template interno em back/templates/trier-inovafarma.',
     );
   }
 
@@ -210,7 +285,7 @@ async function buildExtensionPackage({ workingDirectory, envContent }) {
   });
 
   if (!(await pathExists(distDirectory))) {
-    throw new Error('O build da extensao Trier nao gerou a pasta dist.');
+    throw new Error('O build da extensão Trier não gerou a pasta dist.');
   }
 
   return distDirectory;
@@ -218,7 +293,7 @@ async function buildExtensionPackage({ workingDirectory, envContent }) {
 
 export async function configurarExtensaoTrier(args = {}) {
   if (!args.instance_url || !String(args.instance_url).trim()) {
-    throw new Error('Informe a URL da instancia do cliente.');
+    throw new Error('Informe a URL da instância do cliente.');
   }
 
   if (!args.client_token || !String(args.client_token).trim()) {
@@ -232,32 +307,41 @@ export async function configurarExtensaoTrier(args = {}) {
     `VITE_CLIENT_TOKEN="${clientToken}"`,
   ].join('\n');
   const generatedAt = new Date().toISOString();
+  const instanceDisplayName = buildInstanceDisplayName(normalizedInstanceUrl);
+  const tokenHint = buildTokenHint(clientToken);
+  const extensionDisplayName = buildExtensionDisplayName(
+    normalizedInstanceUrl,
+    clientToken,
+  );
   const fileSlug = buildSafeFileSlug(normalizedInstanceUrl) || 'cliente';
   const buildId = `${fileSlug}-${Date.now()}`;
   const workingDirectory = path.join(temporaryBuildsDirectory, buildId);
-  const zipFileName = `trier-extensao-${buildId}.zip`;
-  const outputZipPath = path.join(downloadsDirectory, zipFileName);
+  const downloadTarget = await getAvailableDownloadTarget(
+    buildZipBaseName(normalizedInstanceUrl, clientToken),
+  );
+  const zipFileName = downloadTarget.fileName;
+  const outputZipPath = downloadTarget.outputPath;
   const traceSteps = [];
 
   await fsExtra.ensureDir(workingDirectory);
 
   try {
     const source = await resolveTemplateSource();
-    traceSteps.push('Template da extensao Trier localizado.');
+    traceSteps.push('Template da extensão Trier localizado.');
 
     await prepareTemplateWorkspace(source, workingDirectory);
-    traceSteps.push('Codigo-fonte da extensao preparado para build.');
+    traceSteps.push('Código-fonte da extensão preparado para build.');
 
     await normalizePortugueseAssetNames(workingDirectory);
-    traceSteps.push('Nomes de arquivos em portugues normalizados para UTF-8.');
+    traceSteps.push('Nomes de arquivos em português normalizados para UTF-8.');
 
     const distDirectory = await buildExtensionPackage({
       workingDirectory,
       envContent,
     });
-    traceSteps.push('Variaveis de ambiente aplicadas ao build.');
-    traceSteps.push('Dependencias instaladas.');
-    traceSteps.push('Build da extensao concluido.');
+    traceSteps.push('Variáveis de ambiente aplicadas ao build.');
+    traceSteps.push('Dependências instaladas.');
+    traceSteps.push('Build da extensão concluído.');
 
     await createZipFromDirectory(distDirectory, outputZipPath);
     traceSteps.push('Arquivos da pasta dist empacotados em ZIP.');
@@ -265,11 +349,11 @@ export async function configurarExtensaoTrier(args = {}) {
     return {
       sucesso: true,
       extensionKey: 'trier',
-      extensionName: 'Extensao Trier',
-      traceMessage: 'Build da extensao Trier preparado para download.',
+      extensionName: 'Extensão Trier',
+      traceMessage: 'Build da extensão Trier preparado para download.',
       traceSteps,
       resultSummary:
-        'Extensao Trier gerada com sucesso. O ZIP do build ja esta disponivel para download.',
+        'Extensão Trier gerada com sucesso. O ZIP do build já está disponível para download.',
       env: {
         VITE_INSTANCE_URL: normalizedInstanceUrl,
         VITE_CLIENT_TOKEN: clientToken,
@@ -277,20 +361,108 @@ export async function configurarExtensaoTrier(args = {}) {
       action: {
         type: 'download',
         url: `/downloads/${zipFileName}`,
-        label: 'Baixar ZIP da extensao Trier',
+        label: `Baixar ZIP - ${extensionDisplayName}`,
       },
       details: {
         generatedAt,
         fileName: zipFileName,
         normalizedInstanceUrl,
+        instanceDisplayName,
+        extensionDisplayName,
+        tokenHint,
       },
       rules: [
-        'Se VITE_INSTANCE_URL vier sem / no final, ela sera normalizada automaticamente.',
-        'O token deve ser o token de integracao da Trier.',
-        'O ZIP contem apenas os arquivos finais do dist, prontos para instalar no navegador.',
+        'Se VITE_INSTANCE_URL vier sem / no final, ela será normalizada automaticamente.',
+        'O token deve ser o token de integração da Trier.',
+        'O ZIP contém apenas os arquivos finais do dist, prontos para instalar no navegador.',
       ],
     };
   } finally {
     await fsExtra.remove(workingDirectory);
   }
+}
+
+export async function configurarExtensaoTrierLote(args = {}) {
+  const rawItems = Array.isArray(args.items) ? args.items : [];
+  const items = rawItems
+    .filter((item) => item && typeof item === 'object')
+    .map((item) => ({
+      instance_url: String(item.instance_url || '').trim(),
+      client_token: String(item.client_token || '').trim(),
+    }))
+    .filter((item) => item.instance_url && item.client_token);
+
+  if (!items.length) {
+    throw new Error(
+      'Informe ao menos uma extensão Trier com instance_url e client_token.',
+    );
+  }
+
+  const results = [];
+  const failures = [];
+  const traceSteps = [];
+
+  for (const [index, item] of items.entries()) {
+    const instanceDisplayName = buildInstanceDisplayName(item.instance_url);
+    const tokenHint = buildTokenHint(item.client_token);
+    const extensionDisplayName = buildExtensionDisplayName(
+      item.instance_url,
+      item.client_token,
+    );
+
+    try {
+      const result = await configurarExtensaoTrier(item);
+      results.push({
+        index: index + 1,
+        instanceDisplayName,
+        extensionDisplayName,
+        tokenHint,
+        ...result,
+      });
+      traceSteps.push(
+        `Extensão Trier ${index + 1}/${items.length} gerada para ${extensionDisplayName}.`,
+      );
+    } catch (error) {
+      const errorMessage = error?.message || 'Falha ao gerar a extensão Trier.';
+      failures.push({
+        index: index + 1,
+        instance_url: item.instance_url,
+        instanceDisplayName,
+        extensionDisplayName,
+        tokenHint,
+        error: errorMessage,
+      });
+      traceSteps.push(
+        `Falha na extensão Trier ${index + 1}/${items.length} para ${extensionDisplayName}: ${errorMessage}`,
+      );
+    }
+  }
+
+  const actions = results
+    .map((result) => result.action)
+    .filter((action) => action && action.url);
+  const successCount = results.length;
+  const failureCount = failures.length;
+  const traceMessage =
+    failureCount === 0
+      ? `${successCount} extensão(ões) Trier geradas com sucesso.`
+      : `${successCount} extensão(ões) Trier geradas e ${failureCount} com falha.`;
+
+  return {
+    sucesso: failureCount === 0,
+    batch: true,
+    traceMessage,
+    traceSteps,
+    resultSummary: traceMessage,
+    results,
+    failures,
+    actions,
+    action: actions[0] || null,
+    details: {
+      total: items.length,
+      successCount,
+      failureCount,
+      generatedAt: new Date().toISOString(),
+    },
+  };
 }
