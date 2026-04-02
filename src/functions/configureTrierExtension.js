@@ -126,6 +126,13 @@ async function getAvailableDownloadTarget(baseName, extension = '.zip') {
 
 async function resolveTemplateSource() {
   const candidates = [
+    env.TRIER_EXTENSION_REPO_URL
+      ? {
+          type: 'repo',
+          url: env.TRIER_EXTENSION_REPO_URL,
+          branch: env.TRIER_EXTENSION_REPO_BRANCH || 'main',
+        }
+      : null,
     env.TRIER_EXTENSION_TEMPLATE_DIR
       ? { type: 'dir', path: env.TRIER_EXTENSION_TEMPLATE_DIR }
       : null,
@@ -139,6 +146,10 @@ async function resolveTemplateSource() {
   ].filter(Boolean);
 
   for (const candidate of candidates) {
+    if (candidate.type === 'repo') {
+      return candidate;
+    }
+
     if (await pathExists(candidate.path)) {
       return candidate;
     }
@@ -147,6 +158,10 @@ async function resolveTemplateSource() {
   throw new Error(
     'Não encontrei o template da extensão Trier. Verifique back/templates/trier-inovafarma ou configure TRIER_EXTENSION_TEMPLATE_DIR/TRIER_EXTENSION_TEMPLATE_ZIP no back/.env.',
   );
+}
+
+function getGitCommand() {
+  return process.platform === 'win32' ? 'git.exe' : 'git';
 }
 
 function getNpmCommand() {
@@ -210,7 +225,37 @@ async function extractZipToDirectory(zipPath, destinationPath) {
   ]);
 }
 
+async function cloneRepositoryToWorkspace(source, workingDirectory) {
+  const gitCommand = getGitCommand();
+  const cloneArgs = ['clone', '--depth', '1', '--single-branch'];
+
+  if (source.branch) {
+    cloneArgs.push('--branch', source.branch);
+  }
+
+  cloneArgs.push(source.url, '.');
+
+  try {
+    await runCommand(gitCommand, cloneArgs, {
+      cwd: workingDirectory,
+    });
+  } catch (error) {
+    throw new Error(
+      `Falha ao clonar o repositorio da extensao Trier (${source.url}${
+        source.branch ? `, branch ${source.branch}` : ''
+      }). ${error.message}`,
+    );
+  }
+}
+
 async function prepareTemplateWorkspace(source, workingDirectory) {
+  if (source.type === 'repo') {
+    await cloneRepositoryToWorkspace(source, workingDirectory);
+    await fsExtra.remove(path.join(workingDirectory, 'dist'));
+    await fsExtra.remove(path.join(workingDirectory, '.git'));
+    return;
+  }
+
   if (source.type === 'dir') {
     await fsExtra.copy(source.path, workingDirectory, {
       filter: (itemPath) => {
@@ -229,6 +274,20 @@ async function prepareTemplateWorkspace(source, workingDirectory) {
   await extractZipToDirectory(source.path, workingDirectory);
   await fsExtra.remove(path.join(workingDirectory, 'dist'));
   await fsExtra.remove(path.join(workingDirectory, '.git'));
+}
+
+function describeTemplateSource(source) {
+  if (source.type === 'repo') {
+    return `Repositorio Git ${source.url}${
+      source.branch ? ` (${source.branch})` : ''
+    }`;
+  }
+
+  if (source.type === 'dir') {
+    return `Diretorio local ${source.path}`;
+  }
+
+  return `Arquivo ZIP ${source.path}`;
 }
 
 async function normalizePortugueseAssetNames(workingDirectory) {
@@ -327,6 +386,7 @@ export async function configurarExtensaoTrier(args = {}) {
 
   try {
     const source = await resolveTemplateSource();
+    traceSteps.push(`Origem da extensao Trier definida: ${describeTemplateSource(source)}.`);
     traceSteps.push('Template da extensão Trier localizado.');
 
     await prepareTemplateWorkspace(source, workingDirectory);
@@ -370,6 +430,9 @@ export async function configurarExtensaoTrier(args = {}) {
         instanceDisplayName,
         extensionDisplayName,
         tokenHint,
+        sourceType: source.type,
+        sourceRepositoryUrl: source.type === 'repo' ? source.url : null,
+        sourceRepositoryBranch: source.type === 'repo' ? source.branch : null,
       },
       rules: [
         'Se VITE_INSTANCE_URL vier sem / no final, ela será normalizada automaticamente.',
