@@ -31,6 +31,9 @@ router.post('/create-ai/vetor', aiController.createAiVetorController);
 
 router.post('/create-ai', aiController.createAiController);
 router.get('/versions', aiController.listAiVersionsController);
+router.get('/installations', aiController.listAiInstallationsController);
+router.post('/installations/update-all', aiController.updateAllAiInstallationsController);
+router.post('/installations/:id/update', aiController.updateAiInstallationController);
 router.get('/templates', aiController.listAiTemplatesController);
 router.post('/templates/sync-current', aiController.syncAiTemplatesController);
 

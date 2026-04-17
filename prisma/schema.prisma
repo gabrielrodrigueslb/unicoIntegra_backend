@@ -40,6 +40,56 @@ model AiTemplateBase {
   @@index([isCurrent])
 }
 
+model AiProviderTemplate {
+  id                     Int      @id @default(autoincrement())
+  provider               String   @db.VarChar(50)
+  templateName           String   @db.VarChar(255)
+  version                Int
+  assistantTemplate      String
+  preProcessTemplate     String
+  buscaProdutosTemplate  String
+  downloadImagemTemplate String
+  uraTemplate            String
+  uraAbTemplate          String
+  isCurrent              Boolean  @default(true)
+  isActive               Boolean  @default(true)
+  createdAt              DateTime @default(now()) @db.Timestamp(6)
+  updatedAt              DateTime @updatedAt @db.Timestamp(6)
+
+  @@map("ai_provider_templates")
+  @@schema("sistema")
+
+  @@unique([provider, version])
+  @@index([provider, isCurrent])
+}
+
+model AiClientInstallation {
+  id              Int      @id @default(autoincrement())
+  instance        String   @db.VarChar(255)
+  provider        String   @db.VarChar(50)
+  assistantId     String?  @db.VarChar(100)
+  assistantName   String?  @db.VarChar(255)
+  installedVersion Int?
+  source          String   @default("managed") @db.VarChar(50)
+  configSnapshot  Json?
+  preProcessId    String?  @db.VarChar(100)
+  buscaProdutosId String?  @db.VarChar(100)
+  downloadImagemId String? @db.VarChar(100)
+  uraIaId         String?  @db.VarChar(100)
+  uraAbId         String?  @db.VarChar(100)
+  lastSyncStatus  String   @default("installed") @db.VarChar(50)
+  lastSyncError   String?
+  createdAt       DateTime @default(now()) @db.Timestamp(6)
+  updatedAt       DateTime @updatedAt @db.Timestamp(6)
+
+  @@map("ai_client_installations")
+  @@schema("sistema")
+
+  @@unique([instance, assistantId])
+  @@index([instance])
+  @@index([provider])
+}
+
 datasource db {
   provider = "postgresql"
   schemas  = ["sistema"]

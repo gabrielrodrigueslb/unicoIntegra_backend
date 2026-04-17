@@ -4,11 +4,15 @@ import {
   createAiVannon,
   createAiVetor,
   createDefaultAi,
+  listManagedAiInstallations,
+  updateAllManagedAiInstallations,
+  updateManagedAiInstallation,
 } from '../services/ai.services.js';
 import {
   listAiTemplateBases,
   syncCurrentAiTemplatesToDb,
 } from '../services/aiTemplateBase.services.js';
+import { syncCurrentAiProviderTemplatesToDb } from '../services/aiProviderTemplate.services.js';
 import { listAiVersions } from '../services/aiVersion.services.js';
 import { createLogService } from '../services/logs.services.js';
 
@@ -468,6 +472,110 @@ export async function listAiVersionsController(req, res) {
   }
 }
 
+export async function listAiInstallationsController(req, res) {
+  try {
+    const { instance, provider, limit } = req.query;
+    const data = await listManagedAiInstallations({ instance, provider, limit });
+    return res.status(200).json({ data });
+  } catch (error) {
+    console.error('Erro ao listar instalacoes de IA:', error);
+    return res.status(500).json({
+      message: 'Ocorreu um erro ao listar as instalacoes de IA.',
+      error: error.message,
+    });
+  }
+}
+
+export async function updateAiInstallationController(req, res) {
+  try {
+    const { id } = req.params;
+    const { username, password, code, force } = req.body;
+
+    if (!username) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "username" e obrigatorio' });
+    }
+
+    if (!password) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "password" e obrigatorio' });
+    }
+
+    if (!code) {
+      return res.status(400).json({ message: 'O campo "code" e obrigatorio' });
+    }
+
+    const data = await updateManagedAiInstallation({
+      installationId: Number(id),
+      username,
+      password,
+      code2fa: code,
+      force: Boolean(force),
+    });
+
+    await createLogService(
+      username || 'Sistema',
+      `Atualizou a instalacao da IA ${id}`,
+      data?.installation?.instance || null,
+    );
+
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error('Erro ao atualizar instalacao de IA:', error);
+    return res.status(500).json({
+      message: 'Ocorreu um erro ao atualizar a instalacao da IA.',
+      error: error.message,
+    });
+  }
+}
+
+export async function updateAllAiInstallationsController(req, res) {
+  try {
+    const { username, password, code, instance, provider, force } = req.body;
+
+    if (!username) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "username" e obrigatorio' });
+    }
+
+    if (!password) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "password" e obrigatorio' });
+    }
+
+    if (!code) {
+      return res.status(400).json({ message: 'O campo "code" e obrigatorio' });
+    }
+
+    const data = await updateAllManagedAiInstallations({
+      username,
+      password,
+      code2fa: code,
+      instance,
+      provider,
+      force: Boolean(force),
+    });
+
+    await createLogService(
+      username || 'Sistema',
+      `Atualizou instalacoes de IA em lote (${data.updated}/${data.total})`,
+      instance || provider || 'todas',
+    );
+
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error('Erro ao atualizar instalacoes de IA em lote:', error);
+    return res.status(500).json({
+      message: 'Ocorreu um erro ao atualizar as instalacoes de IA.',
+      error: error.message,
+    });
+  }
+}
+
 export async function listAiTemplatesController(req, res) {
   try {
     const { limit, currentOnly } = req.query;
@@ -484,10 +592,17 @@ export async function listAiTemplatesController(req, res) {
 
 export async function syncAiTemplatesController(req, res) {
   try {
-    const data = await syncCurrentAiTemplatesToDb();
+    const [legacyTemplates, providerTemplates] = await Promise.all([
+      syncCurrentAiTemplatesToDb(),
+      syncCurrentAiProviderTemplatesToDb(),
+    ]);
+
     return res.status(200).json({
       message: 'Templates base de IA sincronizados com sucesso.',
-      data,
+      data: {
+        legacyTemplates,
+        providerTemplates,
+      },
     });
   } catch (error) {
     console.error('Erro ao sincronizar templates base de IA:', error);
