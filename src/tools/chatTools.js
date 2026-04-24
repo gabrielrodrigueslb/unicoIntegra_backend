@@ -147,6 +147,7 @@ export const chatTools = [
         clientEndpoint: { type: 'string' },
         cepLoja: { type: 'string' },
         vetorToken: { type: 'string' },
+        unidade_negocio_vetor: { type: 'string' },
       },
       required: ['template_key', 'instance', 'code', 'name'],
       additionalProperties: false,

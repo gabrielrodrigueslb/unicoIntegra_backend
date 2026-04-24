@@ -202,6 +202,7 @@ export const aiCatalog = {
       { inputKey: 'clientName', label: 'Nome da loja' },
       { inputKey: 'apiKey', label: 'API Key' },
       { inputKey: 'vetorToken', label: 'Token Vetor' },
+      { inputKey: 'unidade_negocio_vetor', label: 'Unidade de negocio Vetor' },
     ],
   },
 };

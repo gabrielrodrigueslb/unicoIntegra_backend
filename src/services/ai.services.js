@@ -315,6 +315,7 @@ export async function createAiVetor(
   code2fa,
   name,
   vetorToken,
+  unidade_negocio_vetor,
   clientName,
   apiKey,
 ) {
@@ -324,6 +325,7 @@ export async function createAiVetor(
     configInput: {
       name,
       vetorToken,
+      unidade_negocio_vetor,
       clientName,
       apiKey,
     },

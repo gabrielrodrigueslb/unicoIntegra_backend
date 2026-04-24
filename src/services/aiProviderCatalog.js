@@ -185,6 +185,8 @@ const MANAGED_AI_PROVIDER_DEFINITIONS = {
         clientName: input.clientName ?? '',
         apiKey: input.apiKey ?? '',
         vetorToken: input.vetorToken ?? '',
+        unidade_negocio_vetor:
+          input.unidade_negocio_vetor ?? input.unidadeNegocioVetor ?? '',
       };
     },
     buildTemplateVariables({ instance, assistantId, config = {}, ids = {} }) {
@@ -197,6 +199,7 @@ const MANAGED_AI_PROVIDER_DEFINITIONS = {
         endpoint_var: normalizeBaseUrl(instance),
         api_var: config.apiKey || '',
         var_vetorKey: config.vetorToken || '',
+        unidade_negocio_vetor: config.unidade_negocio_vetor || '',
         preProcessId: ids.preProcessId || '',
         busca_produtos_id: ids.buscaProdutosId || '',
         download_image_id: ids.downloadImagemId || '',
@@ -213,7 +216,8 @@ const MANAGED_AI_PROVIDER_DEFINITIONS = {
           record.uraAbId &&
           record.configSnapshot?.clientName &&
           record.configSnapshot?.apiKey &&
-          record.configSnapshot?.vetorToken,
+          record.configSnapshot?.vetorToken &&
+          record.configSnapshot?.unidade_negocio_vetor,
       );
     },
   },

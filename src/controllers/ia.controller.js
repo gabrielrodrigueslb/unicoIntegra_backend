@@ -268,7 +268,7 @@ export async function createAiVannonController(req, res) {
     if (!clientEndpoint) {
       return res
         .status(400)
-        .json({ message: 'O campo "clientEndpoint" é obrigatório' });
+        .json({ message: 'O campo "clientEndpoint" Ã© obrigatÃ³rio' });
     }
     if (!cepLoja) {
       return res
@@ -323,10 +323,15 @@ export async function createAiVetorController(req, res) {
       password,
       name,
       vetorToken,
+      unidade_negocio_vetor,
+      unidadeNegocioVetor,
       apiKey,
       code,
       clientName,
     } = req.body;
+
+    const vetorBusinessUnit =
+      unidade_negocio_vetor || unidadeNegocioVetor;
 
     if (!instance) {
       return res
@@ -356,7 +361,12 @@ export async function createAiVetorController(req, res) {
     if (!vetorToken) {
       return res
         .status(400)
-        .json({ message: 'O campo "clientEndpoint" é obrigatório' });
+        .json({ message: 'O campo "vetorToken" é obrigatório' });
+    }
+    if (!vetorBusinessUnit) {
+      return res.status(400).json({
+        message: 'O campo "unidade_negocio_vetor" é obrigatório',
+      });
     }
     if (!apiKey) {
       return res
@@ -374,6 +384,7 @@ export async function createAiVetorController(req, res) {
       code,
       name,
       vetorToken,
+      vetorBusinessUnit,
       clientName,
       apiKey,
     );
@@ -612,3 +623,4 @@ export async function syncAiTemplatesController(req, res) {
     });
   }
 }
+

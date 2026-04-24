@@ -202,6 +202,7 @@ export async function createAiFromCatalog(args = {}, executionContext) {
         code,
         name,
         args.vetorToken,
+        args.unidade_negocio_vetor,
         args.clientName,
         args.apiKey,
       );
