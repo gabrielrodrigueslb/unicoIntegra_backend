@@ -51,6 +51,7 @@ model AiProviderTemplate {
   downloadImagemTemplate String
   uraTemplate            String
   uraAbTemplate          String
+  componentVersions      Json?
   isCurrent              Boolean  @default(true)
   isActive               Boolean  @default(true)
   createdAt              DateTime @default(now()) @db.Timestamp(6)
@@ -72,6 +73,7 @@ model AiClientInstallation {
   installedVersion Int?
   source          String   @default("managed") @db.VarChar(50)
   configSnapshot  Json?
+  installedComponentVersions Json?
   preProcessId    String?  @db.VarChar(100)
   buscaProdutosId String?  @db.VarChar(100)
   downloadImagemId String? @db.VarChar(100)

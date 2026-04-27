@@ -1,3 +1,12 @@
+export const MANAGED_AI_COMPONENT_KEYS = [
+  'assistant',
+  'downloadImagem',
+  'buscaProdutos',
+  'ura',
+  'uraAb',
+  'preProcess',
+];
+
 const MANAGED_AI_PROVIDER_DEFINITIONS = {
   alpha7: {
     provider: 'alpha7',
@@ -268,6 +277,10 @@ export function getManagedAiUpdateOrder(provider) {
   }
 
   return [...(definition.updateOrder || definition.installOrder)];
+}
+
+export function isManagedAiComponentKey(componentKey) {
+  return MANAGED_AI_COMPONENT_KEYS.includes(String(componentKey || '').trim());
 }
 
 export function getManagedAiTemplatePaths(provider) {

@@ -35,6 +35,9 @@ router.get('/installations', aiController.listAiInstallationsController);
 router.post('/installations/update-all', aiController.updateAllAiInstallationsController);
 router.post('/installations/:id/update', aiController.updateAiInstallationController);
 router.get('/templates', aiController.listAiTemplatesController);
+router.post('/templates', aiController.saveAiTemplateBaseController);
+router.get('/templates/providers', aiController.listAiProviderTemplatesController);
+router.post('/templates/providers/:provider', aiController.saveAiProviderTemplateController);
 router.post('/templates/sync-current', aiController.syncAiTemplatesController);
 
 export default router;

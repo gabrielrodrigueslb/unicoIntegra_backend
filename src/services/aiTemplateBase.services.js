@@ -49,6 +49,12 @@ let aiTemplateBasesTableReady = false;
 let aiTemplateBasesInitPromise = null;
 let aiTemplateSeedPromise = null;
 
+function normalizeOptionalString(value) {
+  if (value === undefined || value === null) return null;
+  const normalized = String(value).trim();
+  return normalized ? normalized : null;
+}
+
 function parseBooleanFlag(value, defaultValue = true) {
   if (value === undefined || value === null || value === '') return defaultValue;
   if (typeof value === 'boolean') return value;
@@ -183,6 +189,80 @@ async function createNextTemplateVersion(definition, templateContent) {
   });
 }
 
+async function createManualTemplateVersion({
+  templateKey,
+  templateName,
+  templateContent,
+  contentType = 'json-template',
+  sourcePath = null,
+  isActive = true,
+}) {
+  const normalizedTemplateKey = normalizeOptionalString(templateKey);
+  const normalizedTemplateName = normalizeOptionalString(templateName);
+  const normalizedContentType = normalizeOptionalString(contentType) || 'json-template';
+  const normalizedSourcePath = normalizeOptionalString(sourcePath);
+
+  if (!normalizedTemplateKey) {
+    throw new Error('templateKey e obrigatorio.');
+  }
+
+  if (!normalizedTemplateName) {
+    throw new Error('templateName e obrigatorio.');
+  }
+
+  if (typeof templateContent !== 'string' || !templateContent.trim()) {
+    throw new Error('templateContent e obrigatorio.');
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.aiTemplateBase.findFirst({
+      where: {
+        templateKey: normalizedTemplateKey,
+        isCurrent: true,
+      },
+      orderBy: [{ version: 'desc' }, { id: 'desc' }],
+    });
+
+    if (
+      current &&
+      current.templateContent === templateContent &&
+      current.templateName === normalizedTemplateName &&
+      current.sourcePath === normalizedSourcePath &&
+      current.contentType === normalizedContentType &&
+      current.isActive === Boolean(isActive)
+    ) {
+      return { changed: false, row: current };
+    }
+
+    const aggregate = await tx.aiTemplateBase.aggregate({
+      where: { templateKey: normalizedTemplateKey },
+      _max: { version: true },
+    });
+
+    const nextVersion = (aggregate._max.version ?? 0) + 1;
+
+    await tx.aiTemplateBase.updateMany({
+      where: { templateKey: normalizedTemplateKey, isCurrent: true },
+      data: { isCurrent: false },
+    });
+
+    const row = await tx.aiTemplateBase.create({
+      data: {
+        templateKey: normalizedTemplateKey,
+        templateName: normalizedTemplateName,
+        version: nextVersion,
+        templateContent,
+        contentType: normalizedContentType,
+        sourcePath: normalizedSourcePath,
+        isCurrent: true,
+        isActive: Boolean(isActive),
+      },
+    });
+
+    return { changed: true, row };
+  });
+}
+
 export async function syncCurrentAiTemplatesToDb() {
   await ensureAiTemplateBasesTableExists();
 
@@ -249,6 +329,36 @@ export async function listAiTemplateBases({ currentOnly = true, limit = 100 } = 
     updatedAt: row.updatedAt,
     templateContent: row.templateContent,
   }));
+}
+
+export async function saveAiTemplateBase(input = {}) {
+  await ensureAiTemplateBasesTableExists();
+
+  const result = await createManualTemplateVersion({
+    templateKey: input.templateKey,
+    templateName: input.templateName,
+    templateContent: input.templateContent,
+    contentType: input.contentType,
+    sourcePath: input.sourcePath,
+    isActive: input.isActive,
+  });
+
+  return {
+    changed: result.changed,
+    row: {
+      id: result.row.id,
+      templateKey: result.row.templateKey,
+      templateName: result.row.templateName,
+      version: result.row.version,
+      contentType: result.row.contentType,
+      sourcePath: result.row.sourcePath,
+      isCurrent: result.row.isCurrent,
+      isActive: result.row.isActive,
+      createdAt: result.row.createdAt,
+      updatedAt: result.row.updatedAt,
+      templateContent: result.row.templateContent,
+    },
+  };
 }
 
 async function getCurrentAiTemplateRow(templateKey) {

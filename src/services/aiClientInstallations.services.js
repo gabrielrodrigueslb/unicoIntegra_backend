@@ -1,5 +1,6 @@
 import { adminPool } from '../database/adminPool.js';
 import {
+  MANAGED_AI_COMPONENT_KEYS,
   canManagedAiInstallationBeUpdated,
   isManagedAiProvider,
   isAiProviderUpdateBlocked,
@@ -36,11 +37,73 @@ function parseRowJson(value) {
   }
 }
 
-function normalizeInstallationRow(row, currentVersionsByProvider = new Map()) {
+function normalizeComponentVersions(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  const normalized = {};
+
+  for (const componentKey of MANAGED_AI_COMPONENT_KEYS) {
+    const numericValue = Number(value[componentKey]);
+    if (Number.isFinite(numericValue) && numericValue > 0) {
+      normalized[componentKey] = numericValue;
+    }
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : null;
+}
+
+function resolveInstalledComponentVersions(row, currentPackage = null) {
+  const explicitVersions = normalizeComponentVersions(
+    parseRowJson(row.installedComponentVersions),
+  );
+
+  if (explicitVersions) {
+    return explicitVersions;
+  }
+
+  if (
+    row.installedVersion !== null &&
+    row.installedVersion !== undefined &&
+    currentPackage?.componentVersions
+  ) {
+    return null;
+  }
+
+  return null;
+}
+
+function calculateComponentsNeedingUpdate(installedVersions, currentVersions) {
+  if (!currentVersions) return [];
+  if (!installedVersions) return [...MANAGED_AI_COMPONENT_KEYS];
+
+  return MANAGED_AI_COMPONENT_KEYS.filter((componentKey) => {
+    const currentVersion = Number(currentVersions[componentKey]);
+    const installedVersion = Number(installedVersions[componentKey]);
+
+    if (!Number.isFinite(currentVersion)) return false;
+    if (!Number.isFinite(installedVersion)) return true;
+    return currentVersion > installedVersion;
+  });
+}
+
+function normalizeInstallationRow(row, currentPackagesByProvider = new Map()) {
   if (!row) return null;
 
-  const currentVersion = currentVersionsByProvider.get(row.provider) ?? null;
+  const currentPackage = currentPackagesByProvider.get(row.provider) ?? null;
+  const currentVersion = currentPackage?.version ?? null;
   const configSnapshot = parseRowJson(row.configSnapshot);
+  const installedComponentVersions = resolveInstalledComponentVersions(
+    row,
+    currentPackage,
+  );
+  const currentComponentVersions =
+    normalizeComponentVersions(currentPackage?.componentVersions) || null;
+  const componentsNeedingUpdate = calculateComponentsNeedingUpdate(
+    installedComponentVersions,
+    currentComponentVersions,
+  );
 
   const normalized = {
     id: row.id,
@@ -53,12 +116,12 @@ function normalizeInstallationRow(row, currentVersionsByProvider = new Map()) {
         ? null
         : Number(row.installedVersion),
     currentVersion,
-    updateAvailable:
-      currentVersion !== null &&
-      row.installedVersion !== null &&
-      Number(currentVersion) > Number(row.installedVersion),
+    updateAvailable: componentsNeedingUpdate.length > 0,
     source: row.source || 'managed',
     configSnapshot,
+    installedComponentVersions,
+    currentComponentVersions,
+    componentsNeedingUpdate,
     preProcessId: normalizeId(row.preProcessId),
     buscaProdutosId: normalizeId(row.buscaProdutosId),
     downloadImagemId: normalizeId(row.downloadImagemId),
@@ -78,9 +141,9 @@ function normalizeInstallationRow(row, currentVersionsByProvider = new Map()) {
   return normalized;
 }
 
-async function getCurrentVersionsByProvider() {
+async function getCurrentPackagesByProvider() {
   const packages = await listCurrentAiProviderTemplatePackages();
-  return new Map(packages.map((item) => [item.provider, Number(item.version)]));
+  return new Map(packages.map((item) => [item.provider, item]));
 }
 
 export async function ensureAiClientInstallationsTableExists() {
@@ -104,6 +167,7 @@ export async function ensureAiClientInstallationsTableExists() {
           "installedVersion" INTEGER,
           source VARCHAR(50) NOT NULL DEFAULT 'managed',
           "configSnapshot" JSONB,
+          "installedComponentVersions" JSONB,
           "preProcessId" VARCHAR(100),
           "buscaProdutosId" VARCHAR(100),
           "downloadImagemId" VARCHAR(100),
@@ -114,6 +178,11 @@ export async function ensureAiClientInstallationsTableExists() {
           "createdAt" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "updatedAt" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
+      `);
+
+      await adminPool.query(`
+        ALTER TABLE sistema.ai_client_installations
+        ADD COLUMN IF NOT EXISTS "installedComponentVersions" JSONB;
       `);
 
       await adminPool.query(`
@@ -176,6 +245,9 @@ export async function upsertAiClientInstallation(record = {}) {
         : Number(record.installedVersion),
     source: record.source || 'managed',
     configSnapshot: normalizeJsonValue(record.configSnapshot),
+    installedComponentVersions: normalizeComponentVersions(
+      record.installedComponentVersions,
+    ),
     preProcessId: normalizeId(record.preProcessId),
     buscaProdutosId: normalizeId(record.buscaProdutosId),
     downloadImagemId: normalizeId(record.downloadImagemId),
@@ -207,6 +279,7 @@ export async function upsertAiClientInstallation(record = {}) {
         "installedVersion",
         source,
         "configSnapshot",
+        "installedComponentVersions",
         "preProcessId",
         "buscaProdutosId",
         "downloadImagemId",
@@ -224,13 +297,14 @@ export async function upsertAiClientInstallation(record = {}) {
         $5::int,
         $6::varchar(50),
         $7::jsonb,
-        $8::varchar(100),
+        $8::jsonb,
         $9::varchar(100),
         $10::varchar(100),
         $11::varchar(100),
         $12::varchar(100),
-        $13::varchar(50),
-        $14::text,
+        $13::varchar(100),
+        $14::varchar(50),
+        $15::text,
         CURRENT_TIMESTAMP
       )
       ON CONFLICT (instance, "assistantId")
@@ -240,6 +314,7 @@ export async function upsertAiClientInstallation(record = {}) {
         "installedVersion" = EXCLUDED."installedVersion",
         source = EXCLUDED.source,
         "configSnapshot" = EXCLUDED."configSnapshot",
+        "installedComponentVersions" = EXCLUDED."installedComponentVersions",
         "preProcessId" = EXCLUDED."preProcessId",
         "buscaProdutosId" = EXCLUDED."buscaProdutosId",
         "downloadImagemId" = EXCLUDED."downloadImagemId",
@@ -258,6 +333,7 @@ export async function upsertAiClientInstallation(record = {}) {
       payload.installedVersion,
       payload.source,
       JSON.stringify(payload.configSnapshot),
+      JSON.stringify(payload.installedComponentVersions),
       payload.preProcessId,
       payload.buscaProdutosId,
       payload.downloadImagemId,
@@ -268,8 +344,8 @@ export async function upsertAiClientInstallation(record = {}) {
     ],
   );
 
-  const currentVersionsByProvider = await getCurrentVersionsByProvider();
-  return normalizeInstallationRow(result.rows?.[0] ?? null, currentVersionsByProvider);
+  const currentPackagesByProvider = await getCurrentPackagesByProvider();
+  return normalizeInstallationRow(result.rows?.[0] ?? null, currentPackagesByProvider);
 }
 
 export async function listAiClientInstallations({
@@ -303,10 +379,10 @@ export async function listAiClientInstallations({
   `;
 
   const result = await adminPool.query(query, params);
-  const currentVersionsByProvider = await getCurrentVersionsByProvider();
+  const currentPackagesByProvider = await getCurrentPackagesByProvider();
 
   return (result.rows ?? []).map((row) =>
-    normalizeInstallationRow(row, currentVersionsByProvider),
+    normalizeInstallationRow(row, currentPackagesByProvider),
   );
 }
 
@@ -323,14 +399,15 @@ export async function getAiClientInstallationById(id) {
     [Number(id)],
   );
 
-  const currentVersionsByProvider = await getCurrentVersionsByProvider();
-  return normalizeInstallationRow(result.rows?.[0] ?? null, currentVersionsByProvider);
+  const currentPackagesByProvider = await getCurrentPackagesByProvider();
+  return normalizeInstallationRow(result.rows?.[0] ?? null, currentPackagesByProvider);
 }
 
 export async function setAiClientInstallationSyncStatus(
   id,
   {
     installedVersion,
+    installedComponentVersions,
     lastSyncStatus,
     lastSyncError = null,
   } = {},
@@ -342,15 +419,24 @@ export async function setAiClientInstallationSyncStatus(
       UPDATE sistema.ai_client_installations
       SET
         "installedVersion" = COALESCE($2::int, "installedVersion"),
-        "lastSyncStatus" = COALESCE($3::varchar(50), "lastSyncStatus"),
-        "lastSyncError" = $4::text,
+        "installedComponentVersions" = COALESCE($3::jsonb, "installedComponentVersions"),
+        "lastSyncStatus" = COALESCE($4::varchar(50), "lastSyncStatus"),
+        "lastSyncError" = $5::text,
         "updatedAt" = CURRENT_TIMESTAMP
       WHERE id = $1::int
       RETURNING *;
     `,
-    [Number(id), installedVersion ?? null, lastSyncStatus ?? null, lastSyncError],
+    [
+      Number(id),
+      installedVersion ?? null,
+      installedComponentVersions
+        ? JSON.stringify(normalizeComponentVersions(installedComponentVersions))
+        : null,
+      lastSyncStatus ?? null,
+      lastSyncError,
+    ],
   );
 
-  const currentVersionsByProvider = await getCurrentVersionsByProvider();
-  return normalizeInstallationRow(result.rows?.[0] ?? null, currentVersionsByProvider);
+  const currentPackagesByProvider = await getCurrentPackagesByProvider();
+  return normalizeInstallationRow(result.rows?.[0] ?? null, currentPackagesByProvider);
 }

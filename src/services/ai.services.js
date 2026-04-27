@@ -7,7 +7,7 @@ import {
 import {
   buildManagedAiTemplateVariables,
   createManagedAiConfigSnapshot,
-  getManagedAiInstallOrder,
+  isManagedAiComponentKey,
   getManagedAiUpdateOrder,
   isManagedAiProvider,
   isAiProviderUpdateBlocked,
@@ -47,6 +47,25 @@ const COMPONENT_ID_FIELD_BY_KEY = {
   uraAb: 'uraAbId',
   preProcess: 'preProcessId',
 };
+
+function normalizeRequestedComponentKeys(componentKey) {
+  if (componentKey === undefined || componentKey === null || componentKey === '') {
+    return [];
+  }
+
+  const values = Array.isArray(componentKey) ? componentKey : [componentKey];
+  const normalized = values
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+
+  for (const key of normalized) {
+    if (!isManagedAiComponentKey(key)) {
+      throw new Error(`Componente de IA invalido: ${key}`);
+    }
+  }
+
+  return [...new Set(normalized)];
+}
 
 function toReadableInstanceError(error) {
   const responseData = error?.response?.data;
@@ -186,6 +205,7 @@ async function createManagedIntegratedAi({ provider, auth, configInput }) {
       assistantId,
       assistantName: assistantPayload.name || configSnapshot.assistantDisplayName || null,
       installedVersion: currentPackage.version,
+      installedComponentVersions: currentPackage.componentVersions,
       source: 'managed',
       configSnapshot,
       preProcessId: installedIds.preProcessId,
@@ -213,6 +233,38 @@ function shouldSkipInstallationUpdate(record, force = false) {
   if (record.currentVersion === null) return false;
   if (record.installedVersion === null) return false;
   return Number(record.installedVersion) >= Number(record.currentVersion);
+}
+
+function getInstalledComponentVersion(record, componentKey) {
+  return Number(record.installedComponentVersions?.[componentKey]);
+}
+
+function getCurrentComponentVersion(templatePackage, componentKey) {
+  return Number(templatePackage?.componentVersions?.[componentKey]);
+}
+
+function resolveComponentsToUpdate({
+  installation,
+  currentPackage,
+  requestedComponentKeys = [],
+  force = false,
+}) {
+  const candidateKeys =
+    requestedComponentKeys.length > 0
+      ? requestedComponentKeys
+      : [...new Set([...getManagedAiUpdateOrder(installation.provider), 'assistant'])];
+
+  return candidateKeys.filter((componentKey) => {
+    if (force) return true;
+
+    const currentVersion = getCurrentComponentVersion(currentPackage, componentKey);
+    if (!Number.isFinite(currentVersion)) return false;
+
+    const installedVersion = getInstalledComponentVersion(installation, componentKey);
+    if (!Number.isFinite(installedVersion)) return true;
+
+    return currentVersion > installedVersion;
+  });
 }
 
 export async function createAi(instance, token) {
@@ -406,6 +458,7 @@ export async function updateManagedAiInstallation({
   password,
   code2fa,
   force = false,
+  componentKey,
 }) {
   const installation = await getAiClientInstallationById(installationId);
   if (!installation) {
@@ -428,14 +481,6 @@ export async function updateManagedAiInstallation({
     );
   }
 
-  if (shouldSkipInstallationUpdate(installation, force)) {
-    return {
-      updated: false,
-      message: 'A instalacao ja esta na versao atual.',
-      installation,
-    };
-  }
-
   const currentPackage = await getCurrentAiProviderTemplatePackage(
     installation.provider,
   );
@@ -443,6 +488,30 @@ export async function updateManagedAiInstallation({
     throw new Error(
       `Pacote atual do provider ${installation.provider} nao encontrado.`,
     );
+  }
+
+  const requestedComponentKeys = normalizeRequestedComponentKeys(componentKey);
+  const componentsToUpdate = resolveComponentsToUpdate({
+    installation,
+    currentPackage,
+    requestedComponentKeys,
+    force,
+  });
+
+  if (requestedComponentKeys.length > 0 && componentsToUpdate.length === 0) {
+    return {
+      updated: false,
+      message: 'Nenhum dos componentes solicitados precisa de atualizacao.',
+      installation,
+    };
+  }
+
+  if (componentsToUpdate.length === 0 && shouldSkipInstallationUpdate(installation, force)) {
+    return {
+      updated: false,
+      message: 'A instalacao ja esta na versao atual.',
+      installation,
+    };
   }
 
   const token = await authenticateInstance(
@@ -453,7 +522,7 @@ export async function updateManagedAiInstallation({
   );
 
   try {
-    for (const componentKey of getManagedAiUpdateOrder(installation.provider)) {
+    for (const componentKey of componentsToUpdate.filter((item) => item !== 'assistant')) {
       const payload = await buildManagedIvrPayload(
         installation.provider,
         componentKey,
@@ -469,32 +538,48 @@ export async function updateManagedAiInstallation({
       );
     }
 
-    const assistantPayload = await buildManagedAssistantPayload(
-      installation.provider,
-      installation,
-    );
+    let assistantResponse = null;
+    if (componentsToUpdate.includes('assistant')) {
+      const assistantPayload = await buildManagedAssistantPayload(
+        installation.provider,
+        installation,
+      );
 
-    const assistantResponse = await updateAssistantItem(
-      installation.instance,
-      assistantPayload,
-      token,
-    );
+      assistantResponse = await updateAssistantItem(
+        installation.instance,
+        assistantPayload,
+        token,
+      );
+
+      await tryCreateAiVersionSnapshot(installation.instance, assistantPayload);
+    }
+
+    const nextInstalledComponentVersions = {
+      ...(installation.installedComponentVersions || {}),
+    };
+
+    for (const key of componentsToUpdate) {
+      const currentComponentVersion = getCurrentComponentVersion(currentPackage, key);
+      if (Number.isFinite(currentComponentVersion)) {
+        nextInstalledComponentVersions[key] = currentComponentVersion;
+      }
+    }
 
     const updatedInstallation = await setAiClientInstallationSyncStatus(
       installation.id,
       {
         installedVersion: currentPackage.version,
+        installedComponentVersions: nextInstalledComponentVersions,
         lastSyncStatus: 'updated',
         lastSyncError: null,
       },
     );
 
-    await tryCreateAiVersionSnapshot(installation.instance, assistantPayload);
-
     return {
       updated: true,
       message: 'Atualizacao concluida com sucesso.',
       installation: updatedInstallation,
+      updatedComponents: componentsToUpdate,
       assistantResponse,
     };
   } catch (error) {
@@ -516,6 +601,7 @@ export async function updateAllManagedAiInstallations({
   instance,
   provider,
   force = false,
+  componentKey,
 } = {}) {
   const installations = await listAiClientInstallations({
     instance,
@@ -539,6 +625,7 @@ export async function updateAllManagedAiInstallations({
         password,
         code2fa,
         force,
+        componentKey,
       });
 
       if (result.updated) {
@@ -553,6 +640,7 @@ export async function updateAllManagedAiInstallations({
         updated: result.updated,
         success: true,
         message: result.message,
+        updatedComponents: result.updatedComponents || [],
       });
     } catch (error) {
       failedCount += 1;

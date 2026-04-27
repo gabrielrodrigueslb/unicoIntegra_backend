@@ -10,9 +10,14 @@ import {
 } from '../services/ai.services.js';
 import {
   listAiTemplateBases,
+  saveAiTemplateBase,
   syncCurrentAiTemplatesToDb,
 } from '../services/aiTemplateBase.services.js';
-import { syncCurrentAiProviderTemplatesToDb } from '../services/aiProviderTemplate.services.js';
+import {
+  listAiProviderTemplatePackages,
+  saveAiProviderTemplatePackage,
+  syncCurrentAiProviderTemplatesToDb,
+} from '../services/aiProviderTemplate.services.js';
 import { listAiVersions } from '../services/aiVersion.services.js';
 import { createLogService } from '../services/logs.services.js';
 
@@ -500,7 +505,7 @@ export async function listAiInstallationsController(req, res) {
 export async function updateAiInstallationController(req, res) {
   try {
     const { id } = req.params;
-    const { username, password, code, force } = req.body;
+    const { username, password, code, force, componentKey, component } = req.body;
 
     if (!username) {
       return res
@@ -524,6 +529,7 @@ export async function updateAiInstallationController(req, res) {
       password,
       code2fa: code,
       force: Boolean(force),
+      componentKey: componentKey || component,
     });
 
     await createLogService(
@@ -544,7 +550,7 @@ export async function updateAiInstallationController(req, res) {
 
 export async function updateAllAiInstallationsController(req, res) {
   try {
-    const { username, password, code, instance, provider, force } = req.body;
+    const { username, password, code, instance, provider, force, componentKey, component } = req.body;
 
     if (!username) {
       return res
@@ -569,6 +575,7 @@ export async function updateAllAiInstallationsController(req, res) {
       instance,
       provider,
       force: Boolean(force),
+      componentKey: componentKey || component,
     });
 
     await createLogService(
@@ -596,6 +603,61 @@ export async function listAiTemplatesController(req, res) {
     console.error('Erro ao listar templates base de IA:', error);
     return res.status(500).json({
       message: 'Ocorreu um erro ao listar os templates base de IA.',
+      error: error.message,
+    });
+  }
+}
+
+export async function saveAiTemplateBaseController(req, res) {
+  try {
+    const data = await saveAiTemplateBase(req.body || {});
+    return res.status(200).json({
+      message: data.changed
+        ? 'Template base versionado com sucesso.'
+        : 'Nenhuma alteracao detectada no template base.',
+      data,
+    });
+  } catch (error) {
+    console.error('Erro ao salvar template base de IA:', error);
+    return res.status(500).json({
+      message: 'Ocorreu um erro ao salvar o template base de IA.',
+      error: error.message,
+    });
+  }
+}
+
+export async function listAiProviderTemplatesController(req, res) {
+  try {
+    const { provider, currentOnly, limit } = req.query;
+    const data = await listAiProviderTemplatePackages({
+      provider,
+      currentOnly,
+      limit,
+    });
+    return res.status(200).json({ data });
+  } catch (error) {
+    console.error('Erro ao listar templates por provider:', error);
+    return res.status(500).json({
+      message: 'Ocorreu um erro ao listar os templates por provider.',
+      error: error.message,
+    });
+  }
+}
+
+export async function saveAiProviderTemplateController(req, res) {
+  try {
+    const { provider } = req.params;
+    const data = await saveAiProviderTemplatePackage(provider, req.body || {});
+    return res.status(200).json({
+      message: data.changed
+        ? 'Pacote de templates do provider versionado com sucesso.'
+        : 'Nenhuma alteracao detectada no pacote do provider.',
+      data,
+    });
+  } catch (error) {
+    console.error('Erro ao salvar template por provider:', error);
+    return res.status(500).json({
+      message: 'Ocorreu um erro ao salvar o template por provider.',
       error: error.message,
     });
   }

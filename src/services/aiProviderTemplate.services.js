@@ -5,6 +5,7 @@ import { adminPool } from '../database/adminPool.js';
 import { parseTemplateContent } from './TemplateService.js';
 import {
   MANAGED_AI_PROVIDERS,
+  MANAGED_AI_COMPONENT_KEYS,
   getManagedAiProviderFallbackVersion,
   getManagedAiProviderDefinition,
   getManagedAiTemplatePaths,
@@ -29,6 +30,22 @@ let aiProviderTemplatesSeedPromise = null;
 let aiProviderTemplatesSeeded = false;
 let aiProviderTemplatesAvailable = true;
 
+function parseBooleanFlag(value, defaultValue = true) {
+  if (value === undefined || value === null || value === '') return defaultValue;
+  if (typeof value === 'boolean') return value;
+
+  const normalized = String(value).trim().toLowerCase();
+  if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  return defaultValue;
+}
+
+function normalizeOptionalString(value) {
+  if (value === undefined || value === null) return null;
+  const normalized = String(value).trim();
+  return normalized ? normalized : null;
+}
+
 function buildTemplateRowPayload(provider, rawTemplates) {
   const definition = getManagedAiProviderDefinition(provider);
 
@@ -42,6 +59,24 @@ function buildTemplateRowPayload(provider, rawTemplates) {
     uraTemplate: rawTemplates.ura,
     uraAbTemplate: rawTemplates.uraAb,
   };
+}
+
+function parseRowJson(value) {
+  if (!value) return null;
+
+  if (typeof value === 'object') {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function buildInitialComponentVersions() {
+  return Object.fromEntries(MANAGED_AI_COMPONENT_KEYS.map((key) => [key, 1]));
 }
 
 async function readTemplateFileRaw(sourcePath) {
@@ -67,6 +102,30 @@ function providerTemplatesChanged(currentRow, nextRow) {
   return Object.values(TEMPLATE_COMPONENT_COLUMN_MAP).some(
     (column) => currentRow[column] !== nextRow[column],
   );
+}
+
+function resolveNextComponentVersions(currentRow, nextRow) {
+  if (!currentRow) {
+    return buildInitialComponentVersions();
+  }
+
+  const currentComponentVersions =
+    parseRowJson(currentRow.componentVersions) || buildInitialComponentVersions();
+  const nextComponentVersions = { ...currentComponentVersions };
+
+  for (const [componentKey, column] of Object.entries(TEMPLATE_COMPONENT_COLUMN_MAP)) {
+    const currentContent = currentRow[column] ?? null;
+    const nextContent = nextRow[column] ?? null;
+
+    if (currentContent !== nextContent) {
+      nextComponentVersions[componentKey] =
+        Number(currentComponentVersions[componentKey] || 0) + 1;
+    } else if (!Number.isFinite(Number(nextComponentVersions[componentKey]))) {
+      nextComponentVersions[componentKey] = 1;
+    }
+  }
+
+  return nextComponentVersions;
 }
 
 async function createNextProviderTemplateVersion(provider, nextRow) {
@@ -100,6 +159,7 @@ async function createNextProviderTemplateVersion(provider, nextRow) {
   );
 
   const nextVersion = Number(aggregate.rows?.[0]?.maxVersion || 0) + 1;
+  const nextComponentVersions = resolveNextComponentVersions(current, nextRow);
 
   await adminPool.query(
     `
@@ -123,6 +183,7 @@ async function createNextProviderTemplateVersion(provider, nextRow) {
         "downloadImagemTemplate",
         "uraTemplate",
         "uraAbTemplate",
+        "componentVersions",
         "isCurrent",
         "isActive"
       )
@@ -136,6 +197,7 @@ async function createNextProviderTemplateVersion(provider, nextRow) {
         $7::text,
         $8::text,
         $9::text,
+        $10::jsonb,
         true,
         true
       )
@@ -151,12 +213,75 @@ async function createNextProviderTemplateVersion(provider, nextRow) {
       nextRow.downloadImagemTemplate,
       nextRow.uraTemplate,
       nextRow.uraAbTemplate,
+      JSON.stringify(nextComponentVersions),
     ],
   );
 
   return {
     changed: true,
     row: insertResult.rows?.[0] ?? null,
+  };
+}
+
+async function createManualProviderTemplateVersion(provider, input = {}) {
+  await ensureAiProviderTemplatesTableExists();
+  if (!aiProviderTemplatesAvailable) {
+    throw new Error('Banco indisponivel para templates por provider.');
+  }
+
+  const normalizedProvider = normalizeOptionalString(provider);
+  if (!normalizedProvider) {
+    throw new Error('provider e obrigatorio.');
+  }
+
+  const definition = getManagedAiProviderDefinition(normalizedProvider);
+  if (!definition) {
+    throw new Error(`Provider de IA nao suportado: ${normalizedProvider}`);
+  }
+
+  const templateName = normalizeOptionalString(input.templateName) || definition.templateName;
+  const nextRow = {
+    provider: normalizedProvider,
+    templateName,
+    assistantTemplate: input.assistantTemplate,
+    preProcessTemplate: input.preProcessTemplate,
+    buscaProdutosTemplate: input.buscaProdutosTemplate,
+    downloadImagemTemplate: input.downloadImagemTemplate,
+    uraTemplate: input.uraTemplate,
+    uraAbTemplate: input.uraAbTemplate,
+  };
+
+  for (const [field, value] of Object.entries(nextRow)) {
+    if (field === 'provider' || field === 'templateName') continue;
+    if (typeof value !== 'string' || !value.trim()) {
+      throw new Error(`${field} e obrigatorio.`);
+    }
+  }
+
+  const result = await createNextProviderTemplateVersion(normalizedProvider, nextRow);
+
+  if (
+    result.changed &&
+    parseBooleanFlag(input.isActive, true) === false &&
+    result.row?.id
+  ) {
+    await adminPool.query(
+      `
+        UPDATE sistema.ai_provider_templates
+        SET
+          "isActive" = false,
+          "updatedAt" = CURRENT_TIMESTAMP
+        WHERE id = $1::int
+        RETURNING *;
+      `,
+      [Number(result.row.id)],
+    );
+    result.row.isActive = false;
+  }
+
+  return {
+    changed: result.changed,
+    row: normalizeTemplateRow(result.row),
   };
 }
 
@@ -174,6 +299,7 @@ function normalizeTemplateRow(row) {
     downloadImagemTemplate: row.downloadImagemTemplate,
     uraTemplate: row.uraTemplate,
     uraAbTemplate: row.uraAbTemplate,
+    componentVersions: parseRowJson(row.componentVersions) || buildInitialComponentVersions(),
     isCurrent: row.isCurrent,
     isActive: row.isActive,
     createdAt: row.createdAt,
@@ -205,11 +331,17 @@ export async function ensureAiProviderTemplatesTableExists() {
           "downloadImagemTemplate" TEXT NOT NULL,
           "uraTemplate" TEXT NOT NULL,
           "uraAbTemplate" TEXT NOT NULL,
+          "componentVersions" JSONB NOT NULL DEFAULT '{}'::jsonb,
           "isCurrent" BOOLEAN NOT NULL DEFAULT true,
           "isActive" BOOLEAN NOT NULL DEFAULT true,
           "createdAt" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "updatedAt" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
+      `);
+
+      await adminPool.query(`
+        ALTER TABLE sistema.ai_provider_templates
+        ADD COLUMN IF NOT EXISTS "componentVersions" JSONB NOT NULL DEFAULT '{}'::jsonb;
       `);
 
       await adminPool.query(`
@@ -354,6 +486,52 @@ export async function listCurrentAiProviderTemplatePackages() {
   return (result.rows ?? []).map(normalizeTemplateRow);
 }
 
+export async function listAiProviderTemplatePackages({
+  provider,
+  currentOnly = true,
+  limit = 100,
+} = {}) {
+  await ensureCurrentAiProviderTemplatesSeeded();
+  if (!aiProviderTemplatesAvailable) {
+    const fallback = provider
+      ? [buildFallbackTemplateRow(provider)].filter(Boolean)
+      : MANAGED_AI_PROVIDERS.map((item) => buildFallbackTemplateRow(item));
+    return fallback;
+  }
+
+  const params = [];
+  const clauses = [];
+
+  const normalizedProvider = normalizeOptionalString(provider);
+  if (normalizedProvider) {
+    params.push(normalizedProvider);
+    clauses.push(`provider = $${params.length}::varchar(50)`);
+  }
+
+  if (parseBooleanFlag(currentOnly, true)) {
+    clauses.push(`"isCurrent" = true`);
+  }
+
+  params.push(Math.min(Math.max(Number(limit) || 100, 1), 500));
+
+  const result = await adminPool.query(
+    `
+      SELECT *
+      FROM sistema.ai_provider_templates
+      ${clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''}
+      ORDER BY provider ASC, version DESC, id DESC
+      LIMIT $${params.length}::int;
+    `,
+    params,
+  );
+
+  return (result.rows ?? []).map(normalizeTemplateRow);
+}
+
+export async function saveAiProviderTemplatePackage(provider, input = {}) {
+  return createManualProviderTemplateVersion(provider, input);
+}
+
 export async function loadAiProviderTemplateComponent(
   provider,
   componentKey,
@@ -397,6 +575,7 @@ function buildFallbackTemplateRow(provider) {
     downloadImagemTemplate: null,
     uraTemplate: null,
     uraAbTemplate: null,
+    componentVersions: buildInitialComponentVersions(),
     isCurrent: true,
     isActive: true,
     createdAt: null,
