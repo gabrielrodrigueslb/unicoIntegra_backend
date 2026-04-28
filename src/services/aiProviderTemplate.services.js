@@ -29,6 +29,7 @@ let aiProviderTemplatesInitPromise = null;
 let aiProviderTemplatesSeedPromise = null;
 let aiProviderTemplatesSeeded = false;
 let aiProviderTemplatesAvailable = true;
+let aiProviderTemplatesWriteAvailable = true;
 
 function parseBooleanFlag(value, defaultValue = true) {
   if (value === undefined || value === null || value === '') return defaultValue;
@@ -73,6 +74,10 @@ function parseRowJson(value) {
   } catch {
     return null;
   }
+}
+
+function isPermissionDeniedError(error) {
+  return error?.code === '42501';
 }
 
 function buildInitialComponentVersions() {
@@ -390,7 +395,7 @@ export async function ensureAiProviderTemplatesTableExists() {
 
 export async function syncCurrentAiProviderTemplatesToDb() {
   await ensureAiProviderTemplatesTableExists();
-  if (!aiProviderTemplatesAvailable) {
+  if (!aiProviderTemplatesAvailable || !aiProviderTemplatesWriteAvailable) {
     return MANAGED_AI_PROVIDERS.map((provider) => ({
       provider,
       templateName: getManagedAiProviderDefinition(provider)?.templateName || provider,
@@ -442,6 +447,16 @@ export async function ensureCurrentAiProviderTemplatesSeeded() {
   try {
     await aiProviderTemplatesSeedPromise;
     aiProviderTemplatesSeeded = true;
+  } catch (error) {
+    if (isPermissionDeniedError(error)) {
+      aiProviderTemplatesWriteAvailable = false;
+      console.warn(
+        'AI_PROVIDER_TEMPLATE WARN: Sem permissao para versionar templates por provider. Usando modo somente leitura com fallback em arquivo.',
+      );
+      return;
+    }
+
+    throw error;
   } finally {
     aiProviderTemplatesSeedPromise = null;
   }
@@ -449,7 +464,7 @@ export async function ensureCurrentAiProviderTemplatesSeeded() {
 
 export async function getCurrentAiProviderTemplatePackage(provider) {
   await ensureCurrentAiProviderTemplatesSeeded();
-  if (!aiProviderTemplatesAvailable) {
+  if (!aiProviderTemplatesAvailable || !aiProviderTemplatesWriteAvailable) {
     return buildFallbackTemplateRow(provider);
   }
 
@@ -471,7 +486,7 @@ export async function getCurrentAiProviderTemplatePackage(provider) {
 
 export async function listCurrentAiProviderTemplatePackages() {
   await ensureCurrentAiProviderTemplatesSeeded();
-  if (!aiProviderTemplatesAvailable) {
+  if (!aiProviderTemplatesAvailable || !aiProviderTemplatesWriteAvailable) {
     return MANAGED_AI_PROVIDERS.map((provider) => buildFallbackTemplateRow(provider));
   }
 
@@ -492,7 +507,7 @@ export async function listAiProviderTemplatePackages({
   limit = 100,
 } = {}) {
   await ensureCurrentAiProviderTemplatesSeeded();
-  if (!aiProviderTemplatesAvailable) {
+  if (!aiProviderTemplatesAvailable || !aiProviderTemplatesWriteAvailable) {
     const fallback = provider
       ? [buildFallbackTemplateRow(provider)].filter(Boolean)
       : MANAGED_AI_PROVIDERS.map((item) => buildFallbackTemplateRow(item));
@@ -529,6 +544,12 @@ export async function listAiProviderTemplatePackages({
 }
 
 export async function saveAiProviderTemplatePackage(provider, input = {}) {
+  await ensureCurrentAiProviderTemplatesSeeded();
+  if (!aiProviderTemplatesWriteAvailable) {
+    throw new Error(
+      'Banco sem permissao de escrita para versionar templates por provider.',
+    );
+  }
   return createManualProviderTemplateVersion(provider, input);
 }
 

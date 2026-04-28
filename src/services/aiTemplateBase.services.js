@@ -1,7 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { prisma } from '../../prisma/PrismaClient.js';
 import { adminPool } from '../database/adminPool.js';
 import {
   loadAndParseTemplate,
@@ -48,6 +47,7 @@ const AI_TEMPLATE_DEFINITIONS = [
 let aiTemplateBasesTableReady = false;
 let aiTemplateBasesInitPromise = null;
 let aiTemplateSeedPromise = null;
+let aiTemplateBasesWriteAvailable = true;
 
 function normalizeOptionalString(value) {
   if (value === undefined || value === null) return null;
@@ -68,6 +68,50 @@ function parseBooleanFlag(value, defaultValue = true) {
 async function readTemplateFileRaw(sourcePath) {
   const fullPath = path.join(TEMPLATES_DIR, sourcePath);
   return fs.readFile(fullPath, 'utf-8');
+}
+
+function normalizeTemplateBaseRow(row) {
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    templateKey: row.templateKey,
+    templateName: row.templateName,
+    version: row.version,
+    contentType: row.contentType,
+    sourcePath: row.sourcePath,
+    isCurrent: row.isCurrent,
+    isActive: row.isActive,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    templateContent: row.templateContent,
+    immutablePaths: row.immutablePaths ?? null,
+    ivrBindings: row.ivrBindings ?? null,
+  };
+}
+
+function isPermissionDeniedError(error) {
+  return error?.code === '42501';
+}
+
+async function buildFallbackTemplateBaseRow(definition) {
+  const templateContent = await readTemplateFileRaw(definition.sourcePath);
+
+  return {
+    id: null,
+    templateKey: definition.templateKey,
+    templateName: definition.templateName,
+    version: 1,
+    contentType: definition.contentType,
+    sourcePath: definition.sourcePath,
+    isCurrent: true,
+    isActive: true,
+    createdAt: null,
+    updatedAt: null,
+    templateContent,
+    immutablePaths: null,
+    ivrBindings: null,
+  };
 }
 
 export async function ensureAiTemplateBasesTableExists() {
@@ -95,6 +139,16 @@ export async function ensureAiTemplateBasesTableExists() {
           "createdAt" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "updatedAt" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
+      `);
+
+      await adminPool.query(`
+        ALTER TABLE sistema.ai_template_bases
+        ADD COLUMN IF NOT EXISTS "immutablePaths" JSONB;
+      `);
+
+      await adminPool.query(`
+        ALTER TABLE sistema.ai_template_bases
+        ADD COLUMN IF NOT EXISTS "ivrBindings" JSONB;
       `);
 
       await adminPool.query(`
@@ -140,53 +194,91 @@ export async function ensureAiTemplateBasesTableExists() {
 }
 
 async function createNextTemplateVersion(definition, templateContent) {
-  return prisma.$transaction(async (tx) => {
-    const current = await tx.aiTemplateBase.findFirst({
-      where: {
-        templateKey: definition.templateKey,
-        isCurrent: true,
-      },
-      orderBy: [{ version: 'desc' }, { id: 'desc' }],
-    });
+  const currentResult = await adminPool.query(
+    `
+      SELECT *
+      FROM sistema.ai_template_bases
+      WHERE "templateKey" = $1::varchar(100)
+        AND "isCurrent" = true
+      ORDER BY version DESC, id DESC
+      LIMIT 1;
+    `,
+    [definition.templateKey],
+  );
 
-    if (
-      current &&
-      current.templateContent === templateContent &&
-      current.templateName === definition.templateName &&
-      current.sourcePath === definition.sourcePath &&
-      current.contentType === definition.contentType &&
-      current.isActive
-    ) {
-      return { changed: false, row: current };
-    }
+  const current = currentResult.rows?.[0] ?? null;
 
-    const aggregate = await tx.aiTemplateBase.aggregate({
-      where: { templateKey: definition.templateKey },
-      _max: { version: true },
-    });
+  if (
+    current &&
+    current.templateContent === templateContent &&
+    current.templateName === definition.templateName &&
+    current.sourcePath === definition.sourcePath &&
+    current.contentType === definition.contentType &&
+    current.isActive
+  ) {
+    return { changed: false, row: normalizeTemplateBaseRow(current) };
+  }
 
-    const nextVersion = (aggregate._max.version ?? 0) + 1;
+  const aggregate = await adminPool.query(
+    `
+      SELECT COALESCE(MAX(version), 0) AS "maxVersion"
+      FROM sistema.ai_template_bases
+      WHERE "templateKey" = $1::varchar(100);
+    `,
+    [definition.templateKey],
+  );
 
-    await tx.aiTemplateBase.updateMany({
-      where: { templateKey: definition.templateKey, isCurrent: true },
-      data: { isCurrent: false },
-    });
+  const nextVersion = Number(aggregate.rows?.[0]?.maxVersion || 0) + 1;
 
-    const row = await tx.aiTemplateBase.create({
-      data: {
-        templateKey: definition.templateKey,
-        templateName: definition.templateName,
-        version: nextVersion,
-        templateContent,
-        contentType: definition.contentType,
-        sourcePath: definition.sourcePath,
-        isCurrent: true,
-        isActive: true,
-      },
-    });
+  await adminPool.query(
+    `
+      UPDATE sistema.ai_template_bases
+      SET "isCurrent" = false
+      WHERE "templateKey" = $1::varchar(100)
+        AND "isCurrent" = true;
+    `,
+    [definition.templateKey],
+  );
 
-    return { changed: true, row };
-  });
+  const insertResult = await adminPool.query(
+    `
+      INSERT INTO sistema.ai_template_bases (
+        "templateKey",
+        "templateName",
+        version,
+        "templateContent",
+        "contentType",
+        "sourcePath",
+        "isCurrent",
+        "isActive",
+        "createdAt",
+        "updatedAt"
+      )
+      VALUES (
+        $1::varchar(100),
+        $2::varchar(255),
+        $3::int,
+        $4::text,
+        $5::varchar(50),
+        $6::varchar(255),
+        true,
+        true,
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
+      )
+      RETURNING *;
+    `,
+    [
+      definition.templateKey,
+      definition.templateName,
+      nextVersion,
+      templateContent,
+      definition.contentType,
+      definition.sourcePath,
+    ],
+  );
+
+  return { changed: true, row: normalizeTemplateBaseRow(insertResult.rows?.[0] ?? null) };
 }
 
 async function createManualTemplateVersion({
@@ -214,57 +306,109 @@ async function createManualTemplateVersion({
     throw new Error('templateContent e obrigatorio.');
   }
 
-  return prisma.$transaction(async (tx) => {
-    const current = await tx.aiTemplateBase.findFirst({
-      where: {
-        templateKey: normalizedTemplateKey,
-        isCurrent: true,
-      },
-      orderBy: [{ version: 'desc' }, { id: 'desc' }],
-    });
+  const currentResult = await adminPool.query(
+    `
+      SELECT *
+      FROM sistema.ai_template_bases
+      WHERE "templateKey" = $1::varchar(100)
+        AND "isCurrent" = true
+      ORDER BY version DESC, id DESC
+      LIMIT 1;
+    `,
+    [normalizedTemplateKey],
+  );
 
-    if (
-      current &&
-      current.templateContent === templateContent &&
-      current.templateName === normalizedTemplateName &&
-      current.sourcePath === normalizedSourcePath &&
-      current.contentType === normalizedContentType &&
-      current.isActive === Boolean(isActive)
-    ) {
-      return { changed: false, row: current };
-    }
+  const current = currentResult.rows?.[0] ?? null;
 
-    const aggregate = await tx.aiTemplateBase.aggregate({
-      where: { templateKey: normalizedTemplateKey },
-      _max: { version: true },
-    });
+  if (
+    current &&
+    current.templateContent === templateContent &&
+    current.templateName === normalizedTemplateName &&
+    current.sourcePath === normalizedSourcePath &&
+    current.contentType === normalizedContentType &&
+    current.isActive === Boolean(isActive)
+  ) {
+    return { changed: false, row: normalizeTemplateBaseRow(current) };
+  }
 
-    const nextVersion = (aggregate._max.version ?? 0) + 1;
+  const aggregate = await adminPool.query(
+    `
+      SELECT COALESCE(MAX(version), 0) AS "maxVersion"
+      FROM sistema.ai_template_bases
+      WHERE "templateKey" = $1::varchar(100);
+    `,
+    [normalizedTemplateKey],
+  );
 
-    await tx.aiTemplateBase.updateMany({
-      where: { templateKey: normalizedTemplateKey, isCurrent: true },
-      data: { isCurrent: false },
-    });
+  const nextVersion = Number(aggregate.rows?.[0]?.maxVersion || 0) + 1;
 
-    const row = await tx.aiTemplateBase.create({
-      data: {
-        templateKey: normalizedTemplateKey,
-        templateName: normalizedTemplateName,
-        version: nextVersion,
-        templateContent,
-        contentType: normalizedContentType,
-        sourcePath: normalizedSourcePath,
-        isCurrent: true,
-        isActive: Boolean(isActive),
-      },
-    });
+  await adminPool.query(
+    `
+      UPDATE sistema.ai_template_bases
+      SET "isCurrent" = false
+      WHERE "templateKey" = $1::varchar(100)
+        AND "isCurrent" = true;
+    `,
+    [normalizedTemplateKey],
+  );
 
-    return { changed: true, row };
-  });
+  const insertResult = await adminPool.query(
+    `
+      INSERT INTO sistema.ai_template_bases (
+        "templateKey",
+        "templateName",
+        version,
+        "templateContent",
+        "contentType",
+        "sourcePath",
+        "isCurrent",
+        "isActive",
+        "createdAt",
+        "updatedAt"
+      )
+      VALUES (
+        $1::varchar(100),
+        $2::varchar(255),
+        $3::int,
+        $4::text,
+        $5::varchar(50),
+        $6::varchar(255),
+        true,
+        $7::boolean,
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
+      )
+      RETURNING *;
+    `,
+    [
+      normalizedTemplateKey,
+      normalizedTemplateName,
+      nextVersion,
+      templateContent,
+      normalizedContentType,
+      normalizedSourcePath,
+      Boolean(isActive),
+    ],
+  );
+
+  return { changed: true, row: normalizeTemplateBaseRow(insertResult.rows?.[0] ?? null) };
 }
 
 export async function syncCurrentAiTemplatesToDb() {
   await ensureAiTemplateBasesTableExists();
+  if (!aiTemplateBasesWriteAvailable) {
+    return Promise.all(
+      AI_TEMPLATE_DEFINITIONS.map(async (definition) => ({
+        templateKey: definition.templateKey,
+        templateName: definition.templateName,
+        sourcePath: definition.sourcePath,
+        version: 1,
+        changed: false,
+        isCurrent: true,
+        source: 'file-fallback',
+      })),
+    );
+  }
 
   const results = [];
 
@@ -297,6 +441,16 @@ export async function ensureCurrentAiTemplatesSeeded() {
 
   try {
     await aiTemplateSeedPromise;
+  } catch (error) {
+    if (isPermissionDeniedError(error)) {
+      aiTemplateBasesWriteAvailable = false;
+      console.warn(
+        'AI_TEMPLATE WARN: Sem permissao para versionar sistema.ai_template_bases. Usando modo somente leitura com fallback em arquivo.',
+      );
+      return;
+    }
+
+    throw error;
   } finally {
     aiTemplateSeedPromise = null;
   }
@@ -306,33 +460,47 @@ export async function listAiTemplateBases({ currentOnly = true, limit = 100 } = 
   await ensureCurrentAiTemplatesSeeded();
   const currentOnlyFlag = parseBooleanFlag(currentOnly, true);
 
-  const rows = await prisma.aiTemplateBase.findMany({
-    where: currentOnlyFlag ? { isCurrent: true } : undefined,
-    take: Math.min(Math.max(Number(limit) || 50, 1), 500),
-    orderBy: [
-      { templateKey: 'asc' },
-      { version: 'desc' },
-      { id: 'desc' },
-    ],
-  });
+  if (!aiTemplateBasesWriteAvailable) {
+    const fallbackRows = await Promise.all(
+      AI_TEMPLATE_DEFINITIONS.map((definition) => buildFallbackTemplateBaseRow(definition)),
+    );
+    const filteredRows = currentOnlyFlag
+      ? fallbackRows.filter((row) => row.isCurrent)
+      : fallbackRows;
 
-  return rows.map((row) => ({
-    id: row.id,
-    templateKey: row.templateKey,
-    templateName: row.templateName,
-    version: row.version,
-    contentType: row.contentType,
-    sourcePath: row.sourcePath,
-    isCurrent: row.isCurrent,
-    isActive: row.isActive,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-    templateContent: row.templateContent,
-  }));
+    return filteredRows.slice(0, Math.min(Math.max(Number(limit) || 50, 1), 500));
+  }
+
+  const params = [];
+  const clauses = [];
+
+  if (currentOnlyFlag) {
+    clauses.push(`"isCurrent" = true`);
+  }
+
+  params.push(Math.min(Math.max(Number(limit) || 50, 1), 500));
+
+  const result = await adminPool.query(
+    `
+      SELECT *
+      FROM sistema.ai_template_bases
+      ${clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''}
+      ORDER BY "templateKey" ASC, version DESC, id DESC
+      LIMIT $${params.length}::int;
+    `,
+    params,
+  );
+
+  return (result.rows ?? []).map(normalizeTemplateBaseRow);
 }
 
 export async function saveAiTemplateBase(input = {}) {
   await ensureAiTemplateBasesTableExists();
+  if (!aiTemplateBasesWriteAvailable) {
+    throw new Error(
+      'Banco sem permissao de escrita para versionar templates base de IA.',
+    );
+  }
 
   const result = await createManualTemplateVersion({
     templateKey: input.templateKey,
@@ -345,29 +513,34 @@ export async function saveAiTemplateBase(input = {}) {
 
   return {
     changed: result.changed,
-    row: {
-      id: result.row.id,
-      templateKey: result.row.templateKey,
-      templateName: result.row.templateName,
-      version: result.row.version,
-      contentType: result.row.contentType,
-      sourcePath: result.row.sourcePath,
-      isCurrent: result.row.isCurrent,
-      isActive: result.row.isActive,
-      createdAt: result.row.createdAt,
-      updatedAt: result.row.updatedAt,
-      templateContent: result.row.templateContent,
-    },
+    row: normalizeTemplateBaseRow(result.row),
   };
 }
 
 async function getCurrentAiTemplateRow(templateKey) {
   await ensureCurrentAiTemplatesSeeded();
 
-  return prisma.aiTemplateBase.findFirst({
-    where: { templateKey, isCurrent: true, isActive: true },
-    orderBy: [{ version: 'desc' }, { id: 'desc' }],
-  });
+  if (!aiTemplateBasesWriteAvailable) {
+    const definition = AI_TEMPLATE_DEFINITIONS.find(
+      (item) => item.templateKey === templateKey,
+    );
+    return definition ? buildFallbackTemplateBaseRow(definition) : null;
+  }
+
+  const result = await adminPool.query(
+    `
+      SELECT *
+      FROM sistema.ai_template_bases
+      WHERE "templateKey" = $1::varchar(100)
+        AND "isCurrent" = true
+        AND "isActive" = true
+      ORDER BY version DESC, id DESC
+      LIMIT 1;
+    `,
+    [templateKey],
+  );
+
+  return normalizeTemplateBaseRow(result.rows?.[0] ?? null);
 }
 
 export async function loadAiTemplateFromDbOrFile(

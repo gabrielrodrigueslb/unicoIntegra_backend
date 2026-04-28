@@ -39,5 +39,11 @@ router.post('/templates', aiController.saveAiTemplateBaseController);
 router.get('/templates/providers', aiController.listAiProviderTemplatesController);
 router.post('/templates/providers/:provider', aiController.saveAiProviderTemplateController);
 router.post('/templates/sync-current', aiController.syncAiTemplatesController);
+router.get('/templates/workspaces', aiController.listAiTemplateWorkspacesController);
+router.get('/templates/workspaces/:provider', aiController.getAiTemplateWorkspaceController);
+router.put('/templates/workspaces/:provider', aiController.saveAiTemplateWorkspaceDraftController);
+router.delete('/templates/workspaces/:provider', aiController.discardAiTemplateWorkspaceDraftController);
+router.post('/templates/workspaces/:provider/release', aiController.releaseAiTemplateWorkspaceDraftController);
+router.post('/templates/workspaces/:provider/rollback', aiController.rollbackAiTemplateWorkspaceController);
 
 export default router;

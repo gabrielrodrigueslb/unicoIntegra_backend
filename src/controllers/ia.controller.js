@@ -18,6 +18,14 @@ import {
   saveAiProviderTemplatePackage,
   syncCurrentAiProviderTemplatesToDb,
 } from '../services/aiProviderTemplate.services.js';
+import {
+  discardAiTemplateWorkspaceDraft,
+  getAiTemplateWorkspace,
+  listAiTemplateWorkspaces,
+  releaseAiTemplateWorkspaceDraft,
+  rollbackAiTemplateWorkspace,
+  saveAiTemplateWorkspaceDraft,
+} from '../services/aiTemplateWorkspace.services.js';
 import { listAiVersions } from '../services/aiVersion.services.js';
 import { createLogService } from '../services/logs.services.js';
 
@@ -681,6 +689,89 @@ export async function syncAiTemplatesController(req, res) {
     console.error('Erro ao sincronizar templates base de IA:', error);
     return res.status(500).json({
       message: 'Ocorreu um erro ao sincronizar templates base de IA.',
+      error: error.message,
+    });
+  }
+}
+
+export async function listAiTemplateWorkspacesController(req, res) {
+  try {
+    const data = await listAiTemplateWorkspaces();
+    return res.status(200).json({ data });
+  } catch (error) {
+    console.error('Erro ao listar workspaces de templates de IA:', error);
+    return res.status(500).json({
+      message: 'Ocorreu um erro ao listar os workspaces de templates de IA.',
+      error: error.message,
+    });
+  }
+}
+
+export async function getAiTemplateWorkspaceController(req, res) {
+  try {
+    const { provider } = req.params;
+    const data = await getAiTemplateWorkspace(provider);
+    return res.status(200).json({ data });
+  } catch (error) {
+    console.error('Erro ao carregar workspace de templates de IA:', error);
+    return res.status(500).json({
+      message: 'Ocorreu um erro ao carregar o workspace de templates de IA.',
+      error: error.message,
+    });
+  }
+}
+
+export async function saveAiTemplateWorkspaceDraftController(req, res) {
+  try {
+    const { provider } = req.params;
+    const response = await saveAiTemplateWorkspaceDraft(provider, req.body || {});
+    return res.status(200).json(response);
+  } catch (error) {
+    console.error('Erro ao salvar rascunho de templates de IA:', error);
+    return res.status(500).json({
+      message: 'Ocorreu um erro ao salvar o rascunho dos templates de IA.',
+      error: error.message,
+    });
+  }
+}
+
+export async function discardAiTemplateWorkspaceDraftController(req, res) {
+  try {
+    const { provider } = req.params;
+    const response = await discardAiTemplateWorkspaceDraft(provider);
+    return res.status(200).json(response);
+  } catch (error) {
+    console.error('Erro ao descartar rascunho de templates de IA:', error);
+    return res.status(500).json({
+      message: 'Ocorreu um erro ao descartar o rascunho dos templates de IA.',
+      error: error.message,
+    });
+  }
+}
+
+export async function releaseAiTemplateWorkspaceDraftController(req, res) {
+  try {
+    const { provider } = req.params;
+    const response = await releaseAiTemplateWorkspaceDraft(provider, req.body || {});
+    return res.status(200).json(response);
+  } catch (error) {
+    console.error('Erro ao publicar rascunho de templates de IA:', error);
+    return res.status(500).json({
+      message: 'Ocorreu um erro ao publicar os templates de IA em producao.',
+      error: error.message,
+    });
+  }
+}
+
+export async function rollbackAiTemplateWorkspaceController(req, res) {
+  try {
+    const { provider } = req.params;
+    const response = await rollbackAiTemplateWorkspace(provider, req.body || {});
+    return res.status(200).json(response);
+  } catch (error) {
+    console.error('Erro ao realizar rollback de templates de IA:', error);
+    return res.status(500).json({
+      message: 'Ocorreu um erro ao realizar rollback dos templates de IA.',
       error: error.message,
     });
   }
