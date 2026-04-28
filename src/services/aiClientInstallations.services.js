@@ -1,6 +1,7 @@
 import { adminPool } from '../database/adminPool.js';
 import {
   MANAGED_AI_COMPONENT_KEYS,
+  isManagedAiManualUpdateOnlyComponentKey,
   canManagedAiInstallationBeUpdated,
   isManagedAiProvider,
   isAiProviderUpdateBlocked,
@@ -76,9 +77,17 @@ function resolveInstalledComponentVersions(row, currentPackage = null) {
 
 function calculateComponentsNeedingUpdate(installedVersions, currentVersions) {
   if (!currentVersions) return [];
-  if (!installedVersions) return [...MANAGED_AI_COMPONENT_KEYS];
+  if (!installedVersions) {
+    return MANAGED_AI_COMPONENT_KEYS.filter(
+      (componentKey) => !isManagedAiManualUpdateOnlyComponentKey(componentKey),
+    );
+  }
 
   return MANAGED_AI_COMPONENT_KEYS.filter((componentKey) => {
+    if (isManagedAiManualUpdateOnlyComponentKey(componentKey)) {
+      return false;
+    }
+
     const currentVersion = Number(currentVersions[componentKey]);
     const installedVersion = Number(installedVersions[componentKey]);
 

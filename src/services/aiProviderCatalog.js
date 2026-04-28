@@ -7,6 +7,8 @@ export const MANAGED_AI_COMPONENT_KEYS = [
   'preProcess',
 ];
 
+export const MANAGED_AI_MANUAL_UPDATE_COMPONENT_KEYS = ['uraAb'];
+
 const MANAGED_AI_PROVIDER_DEFINITIONS = {
   alpha7: {
     provider: 'alpha7',
@@ -22,7 +24,7 @@ const MANAGED_AI_PROVIDER_DEFINITIONS = {
       preProcess: 'ia/alpha7/alpha_pre_processamento.json',
     },
     installOrder: ['downloadImagem', 'buscaProdutos', 'ura', 'uraAb', 'preProcess'],
-    updateOrder: ['downloadImagem', 'buscaProdutos', 'uraAb', 'preProcess'],
+    updateOrder: ['downloadImagem', 'buscaProdutos', 'preProcess'],
     createConfigSnapshot(input = {}) {
       return {
         assistantDisplayName: input.name ?? '',
@@ -78,7 +80,7 @@ const MANAGED_AI_PROVIDER_DEFINITIONS = {
       preProcess: 'ia/trier/trier_pre_processamento.json',
     },
     installOrder: ['downloadImagem', 'buscaProdutos', 'ura', 'uraAb', 'preProcess'],
-    updateOrder: ['downloadImagem', 'buscaProdutos', 'uraAb', 'preProcess'],
+    updateOrder: ['downloadImagem', 'buscaProdutos', 'preProcess'],
     createConfigSnapshot(input = {}) {
       return {
         assistantDisplayName: input.name ?? '',
@@ -131,7 +133,7 @@ const MANAGED_AI_PROVIDER_DEFINITIONS = {
       preProcess: 'ia/vannon/pre_processamento.json',
     },
     installOrder: ['downloadImagem', 'buscaProdutos', 'preProcess', 'ura', 'uraAb'],
-    updateOrder: ['downloadImagem', 'buscaProdutos', 'preProcess', 'uraAb'],
+    updateOrder: ['downloadImagem', 'buscaProdutos', 'preProcess'],
     createConfigSnapshot(input = {}) {
       return {
         assistantDisplayName: input.name ?? '',
@@ -187,7 +189,7 @@ const MANAGED_AI_PROVIDER_DEFINITIONS = {
       preProcess: 'ia/vetor/pre_processamento.json',
     },
     installOrder: ['downloadImagem', 'buscaProdutos', 'preProcess', 'ura', 'uraAb'],
-    updateOrder: ['downloadImagem', 'buscaProdutos', 'preProcess', 'uraAb'],
+    updateOrder: ['downloadImagem', 'buscaProdutos', 'preProcess'],
     createConfigSnapshot(input = {}) {
       return {
         assistantDisplayName: input.name ?? '',
@@ -281,6 +283,12 @@ export function getManagedAiUpdateOrder(provider) {
 
 export function isManagedAiComponentKey(componentKey) {
   return MANAGED_AI_COMPONENT_KEYS.includes(String(componentKey || '').trim());
+}
+
+export function isManagedAiManualUpdateOnlyComponentKey(componentKey) {
+  return MANAGED_AI_MANUAL_UPDATE_COMPONENT_KEYS.includes(
+    String(componentKey || '').trim(),
+  );
 }
 
 export function getManagedAiTemplatePaths(provider) {

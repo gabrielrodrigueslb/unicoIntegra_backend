@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 import loginInstance from './loginInstance.js';
+import { resolveInstanceExecutionCredentials } from './instanceExecutionAuth.services.js';
 
 export async function authenticateInstance(
   instance,
@@ -8,7 +9,18 @@ export async function authenticateInstance(
   password,
   code,
 ) {
-  const loginData = await loginInstance(instance, username, password, code);
+  const resolved = resolveInstanceExecutionCredentials({
+    username,
+    password,
+    code2fa: code,
+  });
+
+  const loginData = await loginInstance(
+    instance,
+    resolved.username,
+    resolved.password,
+    resolved.code2fa,
+  );
   return loginData.token;
 }
 

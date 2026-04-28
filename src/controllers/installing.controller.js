@@ -1,22 +1,36 @@
-// installing.controller.js
 import { installingIntegration } from '../services/installing.services.js';
+import { isAutomatedInstanceAuthEnabled } from '../services/instanceExecutionAuth.services.js';
 import { createLogService } from '../services/logs.services.js';
 
 export async function installingIntegrations(req, res) {
   try {
-    const { instance, integration, username, password, code, integrationData } = req.body;
+    const {
+      instance,
+      integration,
+      username,
+      password,
+      code,
+      integrationData,
+      requestedBy,
+    } = req.body;
 
-    if (!instance || !username || !password ) {
-      return res.status(400).json({ 
-        message: 'Credenciais (instance, username, password, code) são obrigatórias.' 
+    if (!instance) {
+      return res.status(400).json({
+        message: 'O campo "instance" é obrigatório.',
       });
     }
 
-    if (!code) {
-      return res.status(400).json({ message: 'O campo "code" é obrigatório' });
+    if (!isAutomatedInstanceAuthEnabled() && (!username || !password || !code)) {
+      return res.status(400).json({
+        message:
+          'Credenciais da instância indisponíveis. Configure a conta técnica no backend ou informe username, password e code manualmente.',
+      });
     }
+
     if (!integrationData) {
-      return res.status(400).json({ message: 'O payload integrationData é obrigatório.' });
+      return res.status(400).json({
+        message: 'O payload integrationData é obrigatório.',
+      });
     }
 
     const result = await installingIntegration(
@@ -27,7 +41,7 @@ export async function installingIntegrations(req, res) {
       integrationData,
     );
 
-    const currentUser = username || 'Sistema';
+    const currentUser = requestedBy || username || 'Sistema';
     await createLogService(currentUser, `Instalou ${integration}`, instance);
 
     res.status(200).json(result);

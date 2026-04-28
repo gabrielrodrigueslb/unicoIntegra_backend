@@ -27,6 +27,7 @@ import {
   saveAiTemplateWorkspaceDraft,
 } from '../services/aiTemplateWorkspace.services.js';
 import { listAiVersions } from '../services/aiVersion.services.js';
+import { isAutomatedInstanceAuthEnabled } from '../services/instanceExecutionAuth.services.js';
 import { createLogService } from '../services/logs.services.js';
 
 function toReadableError(error) {
@@ -59,6 +60,29 @@ function toReadableError(error) {
   return 'Erro interno ao criar IA.';
 }
 
+function requireManualInstanceAuthIfNeeded(res, { username, password, code }) {
+  if (isAutomatedInstanceAuthEnabled()) {
+    return false;
+  }
+
+  if (!username) {
+    res.status(400).json({ message: 'O campo "username" é obrigatório' });
+    return true;
+  }
+
+  if (!password) {
+    res.status(400).json({ message: 'O campo "password" é obrigatório' });
+    return true;
+  }
+
+  if (!code) {
+    res.status(400).json({ message: 'O campo "code" é obrigatório' });
+    return true;
+  }
+
+  return false;
+}
+
 export async function createAiAlphaController(req, res) {
   try {
     const {
@@ -75,6 +99,7 @@ export async function createAiAlphaController(req, res) {
       unidadeNegocio,
       apiKey,
       code,
+      requestedBy,
     } = req.body;
 
     const alphaPayload = {
@@ -129,12 +154,12 @@ export async function createAiAlphaController(req, res) {
         .status(400)
         .json({ message: 'O campo "apiKey" é obrigatório' });
     }
-    if (!alphaPayload.code2fa) {
-      return res.status(400).json({ message: 'O campo "code" é obrigatório' });
+    if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
+      return;
     }
 
     const aiResponse = await createAiAlpha(alphaPayload);
-    const currentUser = username || 'Sistema';
+    const currentUser = requestedBy || username || 'Sistema';
     await createLogService(
       currentUser,
       `Criou a IA do alpha 7 - ${name}`,
@@ -162,11 +187,12 @@ export async function createAiTrierController(req, res) {
       nome_cliente,
       nomeCliente,
       porta_cliente,
-      clientPort,
-      clientName,
-      apiKey,
-      code,
-    } = req.body;
+        clientPort,
+        clientName,
+        apiKey,
+        code,
+        requestedBy,
+      } = req.body;
 
     const trierPayload = {
       instance,
@@ -209,17 +235,17 @@ export async function createAiTrierController(req, res) {
         .status(400)
         .json({ message: 'O campo "porta_cliente" é obrigatório' });
     }
-    if (!apiKey) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "apiKey" é obrigatório' });
-    }
-    if (!trierPayload.code2fa) {
-      return res.status(400).json({ message: 'O campo "code" é obrigatório' });
-    }
+      if (!apiKey) {
+        return res
+          .status(400)
+          .json({ message: 'O campo "apiKey" é obrigatório' });
+      }
+      if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
+        return;
+      }
 
-    const aiResponse = await createAiTrier(trierPayload);
-    const currentUser = username || 'Sistema';
+      const aiResponse = await createAiTrier(trierPayload);
+      const currentUser = requestedBy || username || 'Sistema';
     await createLogService(
       currentUser,
       `Criou a IA da Trier - ${name}`,
@@ -246,11 +272,12 @@ export async function createAiVannonController(req, res) {
       password,
       name,
       clientEndpoint,
-      apiKey,
-      code,
-      cepLoja,
-      clientName
-    } = req.body;
+        apiKey,
+        code,
+        cepLoja,
+        clientName,
+        requestedBy,
+      } = req.body;
 
     // 2. Validar campos obrigatórios
     if (!instance) {
@@ -293,9 +320,9 @@ export async function createAiVannonController(req, res) {
         .status(400)
         .json({ message: 'O campo "apiKey" é obrigatório' });
     }
-    if (!code) {
-      return res.status(400).json({ message: 'O campo "code" é obrigatório' });
-    }
+      if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
+        return;
+      }
 
     // 3. Chamar a função correta (createAiAlpha) com todos os parâmetros
     const aiResponse = await createAiVannon(
@@ -309,7 +336,7 @@ export async function createAiVannonController(req, res) {
       apiKey,
       cepLoja
     );
-    const currentUser = username || 'Sistema';
+      const currentUser = requestedBy || username || 'Sistema';
     await createLogService(
       currentUser,
       `Criou a IA da Vannon - ${name}`,
@@ -337,11 +364,12 @@ export async function createAiVetorController(req, res) {
       name,
       vetorToken,
       unidade_negocio_vetor,
-      unidadeNegocioVetor,
-      apiKey,
-      code,
-      clientName,
-    } = req.body;
+        unidadeNegocioVetor,
+        apiKey,
+        code,
+        clientName,
+        requestedBy,
+      } = req.body;
 
     const vetorBusinessUnit =
       unidade_negocio_vetor || unidadeNegocioVetor;
@@ -386,9 +414,9 @@ export async function createAiVetorController(req, res) {
         .status(400)
         .json({ message: 'O campo "apiKey" é obrigatório' });
     }
-    if (!code) {
-      return res.status(400).json({ message: 'O campo "code" é obrigatório' });
-    }
+      if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
+        return;
+      }
 
     const aiResponse = await createAiVetor(
       instance,
@@ -401,7 +429,7 @@ export async function createAiVetorController(req, res) {
       clientName,
       apiKey,
     );
-    const currentUser = username || 'Sistema';
+      const currentUser = requestedBy || username || 'Sistema';
     await createLogService(
       currentUser,
       `Criou a IA da Vetor - ${name}`,
@@ -422,7 +450,7 @@ export async function createAiVetorController(req, res) {
 export async function createAiController(req, res) {
   try {
     // 1. Obter todos os dados do body
-    const { instance, username, password, code, name, context } = req.body;
+    const { instance, username, password, code, name, context, requestedBy } = req.body;
 
     // 2. Validar campos obrigatórios
     if (!instance) {
@@ -450,8 +478,8 @@ export async function createAiController(req, res) {
         .status(400)
         .json({ message: 'O campo "context" é obrigatório' });
     }
-    if (!code) {
-      return res.status(400).json({ message: 'O campo "code" é obrigatório' });
+    if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
+      return;
     }
 
     // 3. Chamar a função correta (createAiAlpha) com todos os parâmetros
@@ -463,7 +491,7 @@ export async function createAiController(req, res) {
       name,
       context,
     );
-    const currentUser = username || 'Sistema';
+    const currentUser = requestedBy || username || 'Sistema';
     await createLogService(
       currentUser,
       `Criou a IA de atendimento - ${name}`,
@@ -513,22 +541,10 @@ export async function listAiInstallationsController(req, res) {
 export async function updateAiInstallationController(req, res) {
   try {
     const { id } = req.params;
-    const { username, password, code, force, componentKey, component } = req.body;
+    const { username, password, code, force, componentKey, component, requestedBy } = req.body;
 
-    if (!username) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "username" e obrigatorio' });
-    }
-
-    if (!password) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "password" e obrigatorio' });
-    }
-
-    if (!code) {
-      return res.status(400).json({ message: 'O campo "code" e obrigatorio' });
+    if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
+      return;
     }
 
     const data = await updateManagedAiInstallation({
@@ -541,7 +557,7 @@ export async function updateAiInstallationController(req, res) {
     });
 
     await createLogService(
-      username || 'Sistema',
+      requestedBy || username || 'Sistema',
       `Atualizou a instalacao da IA ${id}`,
       data?.installation?.instance || null,
     );
@@ -558,22 +574,20 @@ export async function updateAiInstallationController(req, res) {
 
 export async function updateAllAiInstallationsController(req, res) {
   try {
-    const { username, password, code, instance, provider, force, componentKey, component } = req.body;
+    const {
+      username,
+      password,
+      code,
+      instance,
+      provider,
+      force,
+      componentKey,
+      component,
+      requestedBy,
+    } = req.body;
 
-    if (!username) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "username" e obrigatorio' });
-    }
-
-    if (!password) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "password" e obrigatorio' });
-    }
-
-    if (!code) {
-      return res.status(400).json({ message: 'O campo "code" e obrigatorio' });
+    if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
+      return;
     }
 
     const data = await updateAllManagedAiInstallations({
@@ -587,7 +601,7 @@ export async function updateAllAiInstallationsController(req, res) {
     });
 
     await createLogService(
-      username || 'Sistema',
+      requestedBy || username || 'Sistema',
       `Atualizou instalacoes de IA em lote (${data.updated}/${data.total})`,
       instance || provider || 'todas',
     );
