@@ -463,8 +463,20 @@ export async function ensureCurrentAiProviderTemplatesSeeded() {
 }
 
 export async function getCurrentAiProviderTemplatePackage(provider) {
+  return getCurrentAiProviderTemplatePackageWithOptions(provider);
+}
+
+export async function getCurrentAiProviderTemplatePackageWithOptions(
+  provider,
+  { requireDatabase = false } = {},
+) {
   await ensureCurrentAiProviderTemplatesSeeded();
   if (!aiProviderTemplatesAvailable || !aiProviderTemplatesWriteAvailable) {
+    if (requireDatabase) {
+      throw new Error(
+        `Pacote publicado do provider ${provider} indisponivel no banco. O fluxo operacional nao usa fallback em arquivo local.`,
+      );
+    }
     return buildFallbackTemplateRow(provider);
   }
 
@@ -481,7 +493,19 @@ export async function getCurrentAiProviderTemplatePackage(provider) {
     [provider],
   );
 
-  return normalizeTemplateRow(result.rows?.[0] ?? null) || buildFallbackTemplateRow(provider);
+  const normalizedRow = normalizeTemplateRow(result.rows?.[0] ?? null);
+
+  if (normalizedRow) {
+    return normalizedRow;
+  }
+
+  if (requireDatabase) {
+    throw new Error(
+      `Pacote publicado do provider ${provider} nao encontrado no banco. O fluxo operacional nao usa fallback em arquivo local.`,
+    );
+  }
+
+  return buildFallbackTemplateRow(provider);
 }
 
 export async function listCurrentAiProviderTemplatePackages() {
@@ -557,14 +581,29 @@ export async function loadAiProviderTemplateComponent(
   provider,
   componentKey,
   variables = {},
+  { requireDatabase = false } = {},
 ) {
   const column = TEMPLATE_COMPONENT_COLUMN_MAP[componentKey];
   if (!column) {
     throw new Error(`Componente de template invalido: ${componentKey}`);
   }
 
+  if (requireDatabase) {
+    const row = await getCurrentAiProviderTemplatePackageWithOptions(provider, {
+      requireDatabase: true,
+    });
+
+    if (!row?.[column]) {
+      throw new Error(
+        `Componente publicado '${provider}/${componentKey}' nao encontrado no banco. O fluxo operacional nao usa fallback em arquivo local.`,
+      );
+    }
+
+    return parseTemplateContent(row[column], variables, '.json');
+  }
+
   try {
-    const row = await getCurrentAiProviderTemplatePackage(provider);
+    const row = await getCurrentAiProviderTemplatePackageWithOptions(provider);
     if (row?.[column]) {
       return parseTemplateContent(row[column], variables, '.json');
     }

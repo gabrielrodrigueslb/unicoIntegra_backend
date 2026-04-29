@@ -547,7 +547,19 @@ export async function loadAiTemplateFromDbOrFile(
   templateKey,
   variables,
   fallbackTemplatePath,
+  { requireDatabase = false } = {},
 ) {
+  if (requireDatabase) {
+    const row = await getCurrentAiTemplateRow(templateKey);
+    if (!row?.templateContent) {
+      throw new Error(
+        `Template base '${templateKey}' nao encontrado no banco. O fluxo operacional nao usa fallback em arquivo local.`,
+      );
+    }
+
+    return parseTemplateContent(row.templateContent, variables, '.json');
+  }
+
   try {
     const row = await getCurrentAiTemplateRow(templateKey);
     if (row?.templateContent) {

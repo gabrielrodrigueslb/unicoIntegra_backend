@@ -13,7 +13,7 @@ import {
   isAiProviderUpdateBlocked,
 } from './aiProviderCatalog.js';
 import {
-  getCurrentAiProviderTemplatePackage,
+  getCurrentAiProviderTemplatePackageWithOptions,
   loadAiProviderTemplateComponent,
 } from './aiProviderTemplate.services.js';
 import {
@@ -26,6 +26,7 @@ import { loadAiTemplateFromDbOrFile } from './aiTemplateBase.services.js';
 import {
   authenticateInstance,
   createAssistantItem,
+  getIvr,
   postIvr,
   updateAssistantItem,
   updateIvr,
@@ -61,6 +62,12 @@ function normalizeRequestedComponentKeys(componentKey) {
   for (const key of normalized) {
     if (!isManagedAiComponentKey(key)) {
       throw new Error(`Componente de IA invalido: ${key}`);
+    }
+
+    if (key === 'ura' || key === 'uraAb') {
+      throw new Error(
+        'URA IA e URA AB nao participam do fluxo de atualizacao automatica.',
+      );
     }
   }
 
@@ -127,6 +134,7 @@ async function buildManagedAssistantPayload(provider, installationRecord) {
     provider,
     'assistant',
     variables,
+    { requireDatabase: true },
   );
 
   const numericAssistantId = Number(installationRecord.assistantId);
@@ -145,7 +153,9 @@ async function buildManagedIvrPayload(provider, componentKey, installationRecord
     ids,
   });
 
-  return loadAiProviderTemplateComponent(provider, componentKey, variables);
+  return loadAiProviderTemplateComponent(provider, componentKey, variables, {
+    requireDatabase: true,
+  });
 }
 
 async function createManagedIntegratedAi({ provider, auth, configInput }) {
@@ -154,7 +164,9 @@ async function createManagedIntegratedAi({ provider, auth, configInput }) {
     throw new Error(`Provider de IA nao suportado: ${provider}`);
   }
 
-  const currentPackage = await getCurrentAiProviderTemplatePackage(provider);
+  const currentPackage = await getCurrentAiProviderTemplatePackageWithOptions(provider, {
+    requireDatabase: true,
+  });
   if (!currentPackage) {
     throw new Error(`Pacote atual do provider ${provider} nao encontrado.`);
   }
@@ -188,6 +200,7 @@ async function createManagedIntegratedAi({ provider, auth, configInput }) {
     provider,
     'assistant',
     assistantVariables,
+    { requireDatabase: true },
   );
 
   assistantPayload.id = assistantId;
@@ -429,6 +442,7 @@ export async function createDefaultAi(
         preautomation: installResponse.id,
       },
       'ia/default_atendimento_ia_config.json',
+      { requireDatabase: true },
     );
 
     const createAiResponse = await updateAssistantItem(
@@ -481,8 +495,9 @@ export async function updateManagedAiInstallation({
     );
   }
 
-  const currentPackage = await getCurrentAiProviderTemplatePackage(
+  const currentPackage = await getCurrentAiProviderTemplatePackageWithOptions(
     installation.provider,
+    { requireDatabase: true },
   );
   if (!currentPackage) {
     throw new Error(
@@ -616,8 +631,26 @@ export async function updateAllManagedAiInstallations({
   const results = [];
   let updatedCount = 0;
   let failedCount = 0;
+  let skippedCount = 0;
 
   for (const item of managedInstallations) {
+    if (!item.canUpdate) {
+      skippedCount += 1;
+      results.push({
+        id: item.id,
+        instance: item.instance,
+        provider: item.provider,
+        assistantName: item.assistantName,
+        updated: false,
+        success: true,
+        skipped: true,
+        message:
+          'Instalacao ignorada: faltam IDs/componentes ou configuracao para atualizacao automatica.',
+        updatedComponents: [],
+      });
+      continue;
+    }
+
     try {
       const result = await updateManagedAiInstallation({
         installationId: item.id,
@@ -639,6 +672,7 @@ export async function updateAllManagedAiInstallations({
         assistantName: item.assistantName,
         updated: result.updated,
         success: true,
+        skipped: false,
         message: result.message,
         updatedComponents: result.updatedComponents || [],
       });
@@ -651,6 +685,7 @@ export async function updateAllManagedAiInstallations({
         assistantName: item.assistantName,
         updated: false,
         success: false,
+        skipped: false,
         message: error.message || 'Falha ao atualizar a instalacao.',
       });
     }
@@ -660,6 +695,154 @@ export async function updateAllManagedAiInstallations({
     total: managedInstallations.length,
     updated: updatedCount,
     failed: failedCount,
+    skipped: skippedCount,
     results,
   };
+}
+
+export async function patchManagedAiUraQuantity({
+  installationId,
+  username,
+  password,
+  code2fa,
+  quantidadeDeProdutos = 3,
+}) {
+  const installation = await getAiClientInstallationById(installationId);
+  if (!installation) {
+    throw new Error('Instalacao de IA nao encontrada.');
+  }
+
+  if (installation.provider !== 'alpha7') {
+    throw new Error(
+      'O patch seguro da URA esta disponivel apenas para instalacoes alpha7.',
+    );
+  }
+
+  if (!installation.uraIaId) {
+    throw new Error('A instalacao nao possui uraIaId configurado.');
+  }
+
+  const quantidadeNormalizada = Number(quantidadeDeProdutos);
+  if (!Number.isFinite(quantidadeNormalizada) || quantidadeNormalizada < 1) {
+    throw new Error('A quantidade de produtos deve ser maior que zero.');
+  }
+
+  const quantidadeFinal = Math.min(7, quantidadeNormalizada);
+
+  const token = await authenticateInstance(
+    installation.instance,
+    username,
+    password,
+    code2fa,
+  );
+
+  const currentUra = await getIvr(
+    installation.instance,
+    installation.uraIaId,
+    token,
+  );
+
+  const options = parseIvrOptions(currentUra?.options);
+  if (!Array.isArray(options) || options.length === 0) {
+    throw new Error('Nao foi possivel ler os blocos atuais da URA.');
+  }
+
+  const firstScriptBlock =
+    options.find(
+      (item) =>
+        String(item?.id || '') === String(currentUra?.initialtext || '') &&
+        Number(item?.type) === 21,
+    ) || options.find((item) => Number(item?.type) === 21);
+
+  if (!firstScriptBlock?.config || typeof firstScriptBlock.config !== 'object') {
+    throw new Error('Nao foi possivel localizar o primeiro JavaScript da URA.');
+  }
+
+  const previousCode = String(firstScriptBlock.config.code || '');
+  const nextCode = patchUraFirstScriptCode(previousCode, quantidadeFinal);
+
+  if (nextCode === previousCode) {
+    return {
+      updated: false,
+      message: 'A URA ja possui esse valor configurado.',
+      installation,
+      quantidade_de_produtos: quantidadeFinal,
+    };
+  }
+
+  firstScriptBlock.config.code = nextCode;
+
+  const updatedUraPayload = {
+    ...currentUra,
+    options: stringifyIvrOptions(options),
+  };
+
+  await updateIvr(
+    installation.instance,
+    installation.uraIaId,
+    updatedUraPayload,
+    token,
+  );
+
+  const updatedInstallation = await upsertAiClientInstallation({
+    instance: installation.instance,
+    provider: installation.provider,
+    assistantId: installation.assistantId,
+    assistantName: installation.assistantName,
+    installedVersion: installation.installedVersion,
+    source: installation.source,
+    configSnapshot: {
+      ...(installation.configSnapshot || {}),
+      quantidade_de_produtos: quantidadeFinal,
+    },
+    installedComponentVersions: installation.installedComponentVersions,
+    preProcessId: installation.preProcessId,
+    buscaProdutosId: installation.buscaProdutosId,
+    downloadImagemId: installation.downloadImagemId,
+    uraIaId: installation.uraIaId,
+    uraAbId: installation.uraAbId,
+    lastSyncStatus: 'updated',
+    lastSyncError: null,
+  });
+
+  return {
+    updated: true,
+    message: 'Patch seguro aplicado na URA com sucesso.',
+    installation: updatedInstallation,
+    quantidade_de_produtos: quantidadeFinal,
+  };
+}
+
+function parseIvrOptions(options) {
+  if (Array.isArray(options)) {
+    return options;
+  }
+
+  if (typeof options === 'string' && options.trim()) {
+    return JSON.parse(options);
+  }
+
+  return [];
+}
+
+function stringifyIvrOptions(options) {
+  return JSON.stringify(options);
+}
+
+function patchUraFirstScriptCode(code, quantidadeDeProdutos) {
+  const currentCode = String(code || '');
+  const nextLine = `vars['qtd_produtos'] = ${quantidadeDeProdutos}`;
+
+  if (currentCode.includes("vars['qtd_produtos']")) {
+    return currentCode.replace(/vars\['qtd_produtos'\]\s*=\s*.*$/m, nextLine);
+  }
+
+  if (currentCode.includes("vars['unidade_negocio_var']")) {
+    return currentCode.replace(
+      /(vars\['unidade_negocio_var'\]\s*=\s*.*)/,
+      `$1\n${nextLine}`,
+    );
+  }
+
+  return `${currentCode}\n${nextLine}`.trim();
 }

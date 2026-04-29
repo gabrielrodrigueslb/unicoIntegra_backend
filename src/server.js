@@ -2,11 +2,13 @@ import 'dotenv/config';
 import app from './app.js';
 import { env } from './config/env.js';
 import { ensureNewsTableExists } from './services/news.services.js';
+import { startAiUraSnapshotAuditScheduler } from './services/aiUraSnapshotAudit.services.js';
 
 const PORT = env.PORT;
 const HOST = env.HOST;
 
 ensureNewsTableExists().then(() => {
+  startAiUraSnapshotAuditScheduler();
   app.listen(PORT, HOST, () => {
     console.log(`Servidor rodando em http://${HOST}:${PORT}`);
   }).on('error', (err) => {

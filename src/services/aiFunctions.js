@@ -42,6 +42,7 @@ async function installProviderComponent({
     provider,
     componentKey,
     variables,
+    { requireDatabase: true },
   );
 
   const response = await postIvr(instance, payload, token);

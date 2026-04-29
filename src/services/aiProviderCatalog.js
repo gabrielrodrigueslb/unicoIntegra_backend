@@ -7,7 +7,7 @@ export const MANAGED_AI_COMPONENT_KEYS = [
   'preProcess',
 ];
 
-export const MANAGED_AI_MANUAL_UPDATE_COMPONENT_KEYS = ['uraAb'];
+export const MANAGED_AI_MANUAL_UPDATE_COMPONENT_KEYS = ['ura', 'uraAb'];
 
 const MANAGED_AI_PROVIDER_DEFINITIONS = {
   alpha7: {
@@ -26,15 +26,25 @@ const MANAGED_AI_PROVIDER_DEFINITIONS = {
     installOrder: ['downloadImagem', 'buscaProdutos', 'ura', 'uraAb', 'preProcess'],
     updateOrder: ['downloadImagem', 'buscaProdutos', 'preProcess'],
     createConfigSnapshot(input = {}) {
+      const quantidadeDeProdutos = Number(
+        input.quantidade_de_produtos ?? input.quantidadeDeProdutos ?? 3,
+      );
+
       return {
         assistantDisplayName: input.name ?? '',
         nome_cliente: input.nome_cliente ?? input.nomeCliente ?? input.clientName ?? '',
         apiKey: input.apiKey ?? '',
         porta_cliente: input.porta_cliente ?? input.clientPort ?? '',
         unidade_negocio: input.unidade_negocio ?? input.unidadeNegocio ?? '',
+        quantidade_de_produtos:
+          Number.isFinite(quantidadeDeProdutos) && quantidadeDeProdutos > 0
+            ? Math.min(7, quantidadeDeProdutos)
+            : 3,
       };
     },
     buildTemplateVariables({ instance, assistantId, config = {}, ids = {} }) {
+      const quantidadeDeProdutos = Number(config.quantidade_de_produtos);
+
       return {
         id: assistantId,
         ia_id: assistantId,
@@ -45,6 +55,10 @@ const MANAGED_AI_PROVIDER_DEFINITIONS = {
         url_cliente: instance,
         porta_cliente: config.porta_cliente || '',
         unidade_negocio: config.unidade_negocio || '',
+        quantidade_de_produtos:
+          Number.isFinite(quantidadeDeProdutos) && quantidadeDeProdutos > 0
+            ? Math.min(7, quantidadeDeProdutos)
+            : 3,
         preProcessId: ids.preProcessId || '',
         BuscaItensId: ids.buscaProdutosId || '',
         download_img_id: ids.downloadImagemId || '',

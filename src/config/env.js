@@ -22,6 +22,10 @@ export const env = {
   INSTANCE_SERVICE_TOTP_PERIOD_SECONDS: Number(
     readEnv('INSTANCE_SERVICE_TOTP_PERIOD_SECONDS', '30'),
   ),
+  AI_URA_AUDIT_ENABLED: readEnv('AI_URA_AUDIT_ENABLED', 'true').toLowerCase() !== 'false',
+  AI_URA_AUDIT_HOUR: Number(readEnv('AI_URA_AUDIT_HOUR', '3')),
+  AI_URA_AUDIT_MINUTE: Number(readEnv('AI_URA_AUDIT_MINUTE', '0')),
+  AI_URA_AUDIT_TIMEZONE: readEnv('AI_URA_AUDIT_TIMEZONE', 'America/Sao_Paulo'),
   OPENAI_API_KEY: readEnv('OPENAI_API_KEY'),
   OPENAI_MODEL: readEnv('OPENAI_MODEL', 'gpt-5.4'),
   OPENAI_REASONING_EFFORT: readEnv('OPENAI_REASONING_EFFORT', 'medium'),

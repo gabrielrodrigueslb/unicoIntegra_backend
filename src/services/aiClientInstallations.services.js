@@ -55,13 +55,62 @@ function normalizeComponentVersions(value) {
   return Object.keys(normalized).length > 0 ? normalized : null;
 }
 
+function shouldInferBaselineComponentVersions(row) {
+  return (
+    row &&
+    row.installedVersion !== null &&
+    row.installedVersion !== undefined &&
+    ['managed', 'manual_import'].includes(String(row.source || '').trim())
+  );
+}
+
+function inferMissingBaselineComponentVersions(
+  row,
+  currentPackage = null,
+  explicitVersions = null,
+) {
+  if (!shouldInferBaselineComponentVersions(row)) {
+    return explicitVersions;
+  }
+
+  const currentVersions = normalizeComponentVersions(currentPackage?.componentVersions);
+  if (!currentVersions) {
+    return explicitVersions;
+  }
+
+  const mergedVersions = explicitVersions ? { ...explicitVersions } : {};
+  let hasAnyVersion = Boolean(explicitVersions);
+
+  for (const componentKey of MANAGED_AI_COMPONENT_KEYS) {
+    const currentVersion = Number(currentVersions[componentKey]);
+    const installedVersion = Number(mergedVersions[componentKey]);
+
+    if (Number.isFinite(installedVersion) && installedVersion > 0) {
+      hasAnyVersion = true;
+      continue;
+    }
+
+    if (currentVersion === 1) {
+      mergedVersions[componentKey] = 1;
+      hasAnyVersion = true;
+    }
+  }
+
+  return hasAnyVersion ? mergedVersions : explicitVersions;
+}
+
 function resolveInstalledComponentVersions(row, currentPackage = null) {
   const explicitVersions = normalizeComponentVersions(
     parseRowJson(row.installedComponentVersions),
   );
+  const inferredVersions = inferMissingBaselineComponentVersions(
+    row,
+    currentPackage,
+    explicitVersions,
+  );
 
-  if (explicitVersions) {
-    return explicitVersions;
+  if (inferredVersions) {
+    return inferredVersions;
   }
 
   if (

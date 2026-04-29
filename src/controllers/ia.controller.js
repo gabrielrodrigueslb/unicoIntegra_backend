@@ -5,6 +5,7 @@ import {
   createAiVetor,
   createDefaultAi,
   listManagedAiInstallations,
+  patchManagedAiUraQuantity,
   updateAllManagedAiInstallations,
   updateManagedAiInstallation,
 } from '../services/ai.services.js';
@@ -26,6 +27,7 @@ import {
   rollbackAiTemplateWorkspace,
   saveAiTemplateWorkspaceDraft,
 } from '../services/aiTemplateWorkspace.services.js';
+import { auditIntegratedAiUraSnapshots } from '../services/aiUraSnapshotAudit.services.js';
 import { listAiVersions } from '../services/aiVersion.services.js';
 import { isAutomatedInstanceAuthEnabled } from '../services/instanceExecutionAuth.services.js';
 import { createLogService } from '../services/logs.services.js';
@@ -97,6 +99,8 @@ export async function createAiAlphaController(req, res) {
       clientPort,
       unidade_negocio,
       unidadeNegocio,
+      quantidade_de_produtos,
+      quantidadeDeProdutos,
       apiKey,
       code,
       requestedBy,
@@ -111,23 +115,16 @@ export async function createAiAlphaController(req, res) {
       nome_cliente: nome_cliente || nomeCliente || clientName,
       porta_cliente: clientPort || porta_cliente,
       unidade_negocio: unidade_negocio || unidadeNegocio,
+      quantidade_de_produtos:
+        quantidade_de_produtos ?? quantidadeDeProdutos ?? 3,
       apiKey,
     };
+    const quantidadeDeProdutosValue = Number(alphaPayload.quantidade_de_produtos);
 
     if (!instance) {
       return res
         .status(400)
         .json({ message: 'O campo "instance" é obrigatório' });
-    }
-    if (!username) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "username" é obrigatório' });
-    }
-    if (!password) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "password" é obrigatório' });
     }
     if (!name) {
       return res
@@ -153,6 +150,21 @@ export async function createAiAlphaController(req, res) {
       return res
         .status(400)
         .json({ message: 'O campo "apiKey" é obrigatório' });
+    }
+    if (
+      !Number.isFinite(quantidadeDeProdutosValue) ||
+      quantidadeDeProdutosValue < 1
+    ) {
+      return res.status(400).json({
+        message:
+          'O campo "quantidade_de_produtos" deve ser maior que zero.',
+      });
+    }
+    if (quantidadeDeProdutosValue > 7) {
+      return res.status(400).json({
+        message:
+          'O campo "quantidade_de_produtos" deve ter no maximo 7 itens.',
+      });
     }
     if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
       return;
@@ -209,16 +221,6 @@ export async function createAiTrierController(req, res) {
       return res
         .status(400)
         .json({ message: 'O campo "instance" é obrigatório' });
-    }
-    if (!username) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "username" é obrigatório' });
-    }
-    if (!password) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "password" é obrigatório' });
     }
     if (!name) {
       return res
@@ -284,16 +286,6 @@ export async function createAiVannonController(req, res) {
       return res
         .status(400)
         .json({ message: 'O campo "instance" é obrigatório' });
-    }
-    if (!username) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "username" é obrigatório' });
-    }
-    if (!password) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "password" é obrigatório' });
     }
     if (!name) {
       return res
@@ -379,16 +371,6 @@ export async function createAiVetorController(req, res) {
         .status(400)
         .json({ message: 'O campo "instance" é obrigatório' });
     }
-    if (!username) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "username" é obrigatório' });
-    }
-    if (!password) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "password" é obrigatório' });
-    }
     if (!name) {
       return res
         .status(400)
@@ -457,16 +439,6 @@ export async function createAiController(req, res) {
       return res
         .status(400)
         .json({ message: 'O campo "instance" é obrigatório' });
-    }
-    if (!username) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "username" (username) é obrigatório' });
-    }
-    if (!password) {
-      return res
-        .status(400)
-        .json({ message: 'O campo "password" (signaturename) é obrigatório' });
     }
     if (!name) {
       return res
@@ -611,6 +583,66 @@ export async function updateAllAiInstallationsController(req, res) {
     console.error('Erro ao atualizar instalacoes de IA em lote:', error);
     return res.status(500).json({
       message: 'Ocorreu um erro ao atualizar as instalacoes de IA.',
+      error: error.message,
+    });
+  }
+}
+
+export async function patchAiInstallationUraQuantityController(req, res) {
+  try {
+    const { id } = req.params;
+    const {
+      username,
+      password,
+      code,
+      requestedBy,
+      quantidade_de_produtos,
+      quantidadeDeProdutos,
+    } = req.body;
+
+    if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
+      return;
+    }
+
+    const data = await patchManagedAiUraQuantity({
+      installationId: Number(id),
+      username,
+      password,
+      code2fa: code,
+      quantidadeDeProdutos:
+        quantidade_de_produtos ?? quantidadeDeProdutos ?? 3,
+    });
+
+    await createLogService(
+      requestedBy || username || 'Sistema',
+      `Aplicou patch seguro de quantidade de produtos na URA (${data.quantidade_de_produtos})`,
+      data.installation?.instance || String(id),
+    );
+
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error('Erro ao aplicar patch seguro na URA da IA:', error);
+    return res.status(500).json({
+      message: 'Ocorreu um erro ao aplicar o patch seguro na URA da IA.',
+      error: error.message,
+    });
+  }
+}
+
+export async function auditAiInstallationUraSnapshotsController(req, res) {
+  try {
+    const { installationId, requestedBy } = req.body || {};
+
+    const data = await auditIntegratedAiUraSnapshots({
+      installationId,
+      requestedBy: requestedBy || 'Sistema',
+    });
+
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error('Erro ao auditar snapshots de URA das IAs:', error);
+    return res.status(500).json({
+      message: 'Ocorreu um erro ao auditar as URAs das IAs.',
       error: error.message,
     });
   }
@@ -790,4 +822,5 @@ export async function rollbackAiTemplateWorkspaceController(req, res) {
     });
   }
 }
+
 

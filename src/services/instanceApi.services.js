@@ -47,12 +47,24 @@ async function putToInstance(instance, endpoint, payload, token) {
   return response.data;
 }
 
+async function getFromInstance(instance, endpoint, token) {
+  const response = await axios.get(`${instance}${endpoint}`, {
+    headers: getInstanceHeaders(token),
+  });
+
+  return response.data;
+}
+
 export function postIvr(instance, payload, token) {
   return postToInstance(instance, '/ivrs/', payload, token);
 }
 
 export function updateIvr(instance, ivrId, payload, token) {
   return putToInstance(instance, `/ivrs/${ivrId}`, payload, token);
+}
+
+export function getIvr(instance, ivrId, token) {
+  return getFromInstance(instance, `/ivrs/${ivrId}`, token);
 }
 
 export function createAssistantItem(instance, payload, token) {
