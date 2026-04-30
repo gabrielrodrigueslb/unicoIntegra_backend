@@ -409,6 +409,8 @@ export async function createDefaultAi(
 
   let installResponse;
   let aiData;
+  let uraIaResponse;
+  let uraAbResponse;
 
   try {
     const automationPayload = await loadAndParseTemplate(
@@ -432,6 +434,40 @@ export async function createDefaultAi(
   }
 
   try {
+    const uraPayload = await loadAndParseTemplate(
+      'ia/default_atendimento_ura.json',
+      {
+        ia_id: aiData.id,
+      },
+    );
+
+    uraIaResponse = await postIvr(instance, uraPayload, token);
+  } catch (error) {
+    console.error(
+      'Falha ao instalar a URA IA da IA de atendimento:',
+      error.response ? error.response.data : error.message,
+    );
+    throw error;
+  }
+
+  try {
+    const uraAbPayload = await loadAndParseTemplate(
+      'ia/default_atendimento_ura_ab.json',
+      {
+        ura_ia_id: uraIaResponse.id,
+      },
+    );
+
+    uraAbResponse = await postIvr(instance, uraAbPayload, token);
+  } catch (error) {
+    console.error(
+      'Falha ao instalar a URA AB da IA de atendimento:',
+      error.response ? error.response.data : error.message,
+    );
+    throw error;
+  }
+
+  try {
     const iaPayload = await loadAiTemplateFromDbOrFile(
       'atendimento',
       {
@@ -451,8 +487,37 @@ export async function createDefaultAi(
       token,
     );
 
+    const installationRecord = await upsertAiClientInstallation({
+      instance,
+      provider: 'atendimento',
+      assistantId: aiData.id,
+      assistantName: iaPayload.name || name,
+      installedVersion: 1,
+      source: 'managed',
+      configSnapshot: {
+        assistantDisplayName: name,
+        context,
+      },
+      installedComponentVersions: null,
+      preProcessId: installResponse.id,
+      buscaProdutosId: null,
+      downloadImagemId: null,
+      uraIaId: uraIaResponse.id,
+      uraAbId: uraAbResponse.id,
+      lastSyncStatus: 'installed',
+      lastSyncError: null,
+    });
+
     await tryCreateAiVersionSnapshot(instance, iaPayload);
-    return createAiResponse;
+    return {
+      ...createAiResponse,
+      supportFlows: {
+        preProcessId: String(installResponse.id),
+        uraIaId: String(uraIaResponse.id),
+        uraAbId: String(uraAbResponse.id),
+      },
+      installation: installationRecord,
+    };
   } catch (error) {
     console.error(
       'Falha ao criar a IA:',

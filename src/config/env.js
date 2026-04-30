@@ -11,6 +11,9 @@ function readEnv(name, fallback = '') {
 const defaultTrierExtensionRepoUrl =
   'https://github.com/UnicoContato/trier_extensao.git';
 const defaultTrierExtensionRepoBranch = 'main';
+const defaultInovaFarmaExtensionRepoUrl =
+  'https://github.com/UnicoContato/Extensao_inova_revisada.git';
+const defaultInovaFarmaExtensionRepoBranch = 'main';
 
 export const env = {
   PORT: Number(readEnv('PORT', '4000')),
@@ -36,6 +39,20 @@ export const env = {
     readEnv('TRIER_EXTENSION_REPO_BRANCH', defaultTrierExtensionRepoBranch),
   TRIER_EXTENSION_TEMPLATE_DIR: readEnv('TRIER_EXTENSION_TEMPLATE_DIR'),
   TRIER_EXTENSION_TEMPLATE_ZIP: readEnv('TRIER_EXTENSION_TEMPLATE_ZIP'),
+  INOVA_FARMA_EXTENSION_REPO_URL: readEnv(
+    'INOVA_FARMA_EXTENSION_REPO_URL',
+    defaultInovaFarmaExtensionRepoUrl,
+  ),
+  INOVA_FARMA_EXTENSION_REPO_BRANCH: readEnv(
+    'INOVA_FARMA_EXTENSION_REPO_BRANCH',
+    defaultInovaFarmaExtensionRepoBranch,
+  ),
+  INOVA_FARMA_EXTENSION_TEMPLATE_DIR: readEnv(
+    'INOVA_FARMA_EXTENSION_TEMPLATE_DIR',
+  ),
+  INOVA_FARMA_EXTENSION_TEMPLATE_ZIP: readEnv(
+    'INOVA_FARMA_EXTENSION_TEMPLATE_ZIP',
+  ),
   CORS_ALLOWED_ORIGINS: readEnv(
     'CORS_ALLOWED_ORIGINS',
     'http://localhost:5173,http://localhost:3000,https://unico-integra.vercel.app',
