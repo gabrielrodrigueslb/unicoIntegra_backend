@@ -31,6 +31,18 @@ let aiProviderTemplatesSeeded = false;
 let aiProviderTemplatesAvailable = true;
 let aiProviderTemplatesWriteAvailable = true;
 
+async function hasAnyAiProviderTemplateRows() {
+  const result = await adminPool.query(`
+    SELECT EXISTS(
+      SELECT 1
+      FROM sistema.ai_provider_templates
+      LIMIT 1
+    ) AS "hasRows";
+  `);
+
+  return Boolean(result.rows?.[0]?.hasRows);
+}
+
 function parseBooleanFlag(value, defaultValue = true) {
   if (value === undefined || value === null || value === '') return defaultValue;
   if (typeof value === 'boolean') return value;
@@ -441,7 +453,10 @@ export async function ensureCurrentAiProviderTemplatesSeeded() {
   aiProviderTemplatesSeedPromise = (async () => {
     await ensureAiProviderTemplatesTableExists();
     if (!aiProviderTemplatesAvailable) return;
-    await syncCurrentAiProviderTemplatesToDb();
+    const hasRows = await hasAnyAiProviderTemplateRows();
+    if (!hasRows) {
+      await syncCurrentAiProviderTemplatesToDb();
+    }
   })();
 
   try {

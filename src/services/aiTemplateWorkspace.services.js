@@ -1,6 +1,4 @@
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { adminPool } from '../database/adminPool.js';
 import {
   MANAGED_AI_COMPONENT_KEYS,
   MANAGED_AI_PROVIDERS,
@@ -14,11 +12,6 @@ import {
   listAiTemplateBases,
   saveAiTemplateBase,
 } from './aiTemplateBase.services.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const WORKSPACE_DIR = path.join(__dirname, '..', 'data');
-const WORKSPACE_FILE = path.join(WORKSPACE_DIR, 'ai-template-workspaces.json');
 const COMPONENT_FIELD_MAP = {
   assistant: 'assistantTemplate',
   preProcess: 'preProcessTemplate',
@@ -38,35 +31,102 @@ function emptyWorkspaceStore() {
   };
 }
 
-async function ensureWorkspaceStoreExists() {
-  await fs.mkdir(WORKSPACE_DIR, { recursive: true });
+let workspaceTableReady = false;
+let workspaceInitPromise = null;
+let workspaceDbAvailable = true;
+
+async function ensureWorkspaceTableExists() {
+  if (!workspaceDbAvailable) return;
+  if (workspaceTableReady) return;
+  if (workspaceInitPromise) {
+    await workspaceInitPromise;
+    return;
+  }
+
+  workspaceInitPromise = (async () => {
+    await adminPool.query(`CREATE SCHEMA IF NOT EXISTS sistema;`);
+    await adminPool.query(`
+      CREATE TABLE IF NOT EXISTS sistema.ai_template_workspaces (
+        provider VARCHAR(50) PRIMARY KEY,
+        draft JSONB NOT NULL,
+        "updatedAt" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    workspaceTableReady = true;
+  })();
 
   try {
-    await fs.access(WORKSPACE_FILE);
-  } catch {
-    await fs.writeFile(
-      WORKSPACE_FILE,
-      JSON.stringify(emptyWorkspaceStore(), null, 2),
-      'utf-8',
-    );
+    await workspaceInitPromise;
+  } catch (error) {
+    workspaceDbAvailable = false;
+    throw error;
+  } finally {
+    workspaceInitPromise = null;
   }
 }
 
 async function readWorkspaceStore() {
-  await ensureWorkspaceStoreExists();
-
+  await ensureWorkspaceTableExists();
   try {
-    const raw = await fs.readFile(WORKSPACE_FILE, 'utf-8');
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : emptyWorkspaceStore();
+    const result = await adminPool.query(`
+      SELECT provider, draft
+      FROM sistema.ai_template_workspaces
+      ORDER BY provider ASC;
+    `);
+
+    const store = emptyWorkspaceStore();
+    for (const row of result.rows ?? []) {
+      if (!row?.provider) continue;
+      store.providers[row.provider] =
+        row.draft && typeof row.draft === 'object' ? row.draft : null;
+    }
+    return store;
   } catch {
     return emptyWorkspaceStore();
   }
 }
 
 async function writeWorkspaceStore(store) {
-  await ensureWorkspaceStoreExists();
-  await fs.writeFile(WORKSPACE_FILE, JSON.stringify(store, null, 2), 'utf-8');
+  await ensureWorkspaceTableExists();
+  const providers = store?.providers && typeof store.providers === 'object'
+    ? store.providers
+    : {};
+  const providerKeys = Object.keys(providers);
+
+  await adminPool.query('BEGIN');
+
+  try {
+    if (providerKeys.length > 0) {
+      await adminPool.query(
+        `
+          DELETE FROM sistema.ai_template_workspaces
+          WHERE provider <> ALL($1::varchar(50)[]);
+        `,
+        [providerKeys],
+      );
+    } else {
+      await adminPool.query(`DELETE FROM sistema.ai_template_workspaces;`);
+    }
+
+    for (const provider of providerKeys) {
+      await adminPool.query(
+        `
+          INSERT INTO sistema.ai_template_workspaces (provider, draft, "updatedAt")
+          VALUES ($1::varchar(50), $2::jsonb, CURRENT_TIMESTAMP)
+          ON CONFLICT (provider)
+          DO UPDATE SET
+            draft = EXCLUDED.draft,
+            "updatedAt" = CURRENT_TIMESTAMP;
+        `,
+        [provider, JSON.stringify(providers[provider] || {})],
+      );
+    }
+
+    await adminPool.query('COMMIT');
+  } catch (error) {
+    await adminPool.query('ROLLBACK');
+    throw error;
+  }
 }
 
 function buildDraftPayload(provider, payload = {}) {

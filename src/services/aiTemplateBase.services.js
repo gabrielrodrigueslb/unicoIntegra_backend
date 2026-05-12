@@ -49,6 +49,18 @@ let aiTemplateBasesInitPromise = null;
 let aiTemplateSeedPromise = null;
 let aiTemplateBasesWriteAvailable = true;
 
+async function hasAnyAiTemplateBaseRows() {
+  const result = await adminPool.query(`
+    SELECT EXISTS(
+      SELECT 1
+      FROM sistema.ai_template_bases
+      LIMIT 1
+    ) AS "hasRows";
+  `);
+
+  return Boolean(result.rows?.[0]?.hasRows);
+}
+
 function normalizeOptionalString(value) {
   if (value === undefined || value === null) return null;
   const normalized = String(value).trim();
@@ -436,7 +448,10 @@ export async function ensureCurrentAiTemplatesSeeded() {
 
   aiTemplateSeedPromise = (async () => {
     await ensureAiTemplateBasesTableExists();
-    await syncCurrentAiTemplatesToDb();
+    const hasRows = await hasAnyAiTemplateBaseRows();
+    if (!hasRows) {
+      await syncCurrentAiTemplatesToDb();
+    }
   })();
 
   try {
