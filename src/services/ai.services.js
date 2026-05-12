@@ -20,6 +20,7 @@ import {
   getAiClientInstallationById,
   listAiClientInstallations,
   setAiClientInstallationSyncStatus,
+  updateAiClientInstallationById,
   upsertAiClientInstallation,
 } from './aiClientInstallations.services.js';
 import { loadAiTemplateFromDbOrFile } from './aiTemplateBase.services.js';
@@ -763,6 +764,308 @@ export async function updateAllManagedAiInstallations({
     skipped: skippedCount,
     results,
   };
+}
+
+function renderJsVarValue(value) {
+  if (value === undefined || value === null) {
+    return "''";
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 'true' : 'false';
+  }
+
+  return `'${String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")}'`;
+}
+
+function buildManagedUraVarAssignments(installation) {
+  const provider = String(installation?.provider || '').trim().toLowerCase();
+  const config = installation?.configSnapshot || {};
+  const quantidadeDeProdutos = Number(config.quantidade_de_produtos);
+
+  if (provider === 'alpha7') {
+    return {
+      url_cliente_var: installation.instance,
+      api_key_var: config.apiKey || '',
+      nome_cliente_var: config.nome_cliente || '',
+      porta_cliente_var: config.porta_cliente || '',
+      unidade_negocio_var: config.unidade_negocio || '',
+      qtd_produtos:
+        Number.isFinite(quantidadeDeProdutos) && quantidadeDeProdutos > 0
+          ? Math.min(7, quantidadeDeProdutos)
+          : 3,
+    };
+  }
+
+  if (provider === 'trier') {
+    return {
+      url_cliente_var: installation.instance,
+      api_key_var: config.apiKey || '',
+      nome_cliente_var: config.nome_cliente || '',
+      porta_cliente_var: config.porta_cliente || '',
+    };
+  }
+
+  if (provider === 'vannon') {
+    return {
+      cliente_var: config.clientName || '',
+      endpoint_var: installation.instance,
+      api_var: config.apiKey || '',
+      client_endpoint_var: config.clientEndpoint || '',
+      cep_var: config.cepLoja || '',
+    };
+  }
+
+  if (provider === 'vetor') {
+    return {
+      cliente_var: config.clientName || '',
+      endpoint_var: installation.instance,
+      api_var: config.apiKey || '',
+      var_vetorKey: config.vetorToken || '',
+      unidade_negocio_vetor: config.unidade_negocio_vetor || '',
+    };
+  }
+
+  return {};
+}
+
+function patchManagedUraConfigCode(code, installation) {
+  const assignments = buildManagedUraVarAssignments(installation);
+  let nextCode = String(code || '');
+  let changed = false;
+
+  for (const [varName, value] of Object.entries(assignments)) {
+    const nextLine = `vars['${varName}'] = ${renderJsVarValue(value)}`;
+    const regex = new RegExp(
+      `vars\\[['"]${varName}['"]\\]\\s*=\\s*.*$`,
+      'm',
+    );
+
+    if (regex.test(nextCode)) {
+      const replaced = nextCode.replace(regex, nextLine);
+      if (replaced !== nextCode) {
+        nextCode = replaced;
+        changed = true;
+      }
+      continue;
+    }
+
+    if (varName === 'qtd_produtos') {
+      if (nextCode.includes("vars['quantidade_de_produtos']")) {
+        const replaced = nextCode.replace(
+          /vars\['quantidade_de_produtos'\]\s*=\s*.*$/m,
+          nextLine,
+        );
+        if (replaced !== nextCode) {
+          nextCode = replaced;
+          changed = true;
+        }
+        continue;
+      }
+
+      if (nextCode.includes("vars['unidade_negocio_var']")) {
+        nextCode = nextCode.replace(
+          /(vars\['unidade_negocio_var'\]\s*=\s*.*)/,
+          `$1\n${nextLine}`,
+        );
+        changed = true;
+        continue;
+      }
+    }
+  }
+
+  return { code: nextCode, changed };
+}
+
+async function applyManagedAiConfigPatchToUra(installation, token) {
+  if (!installation.uraIaId) {
+    return { updated: false, message: 'Instalacao sem URA IA vinculada.' };
+  }
+
+  const currentUra = await getIvr(
+    installation.instance,
+    installation.uraIaId,
+    token,
+  );
+
+  const options = parseIvrOptions(currentUra?.options);
+  if (!Array.isArray(options) || options.length === 0) {
+    throw new Error('Nao foi possivel ler os blocos atuais da URA.');
+  }
+
+  const firstScriptBlock =
+    options.find(
+      (item) =>
+        String(item?.id || '') === String(currentUra?.initialtext || '') &&
+        Number(item?.type) === 21,
+    ) || options.find((item) => Number(item?.type) === 21);
+
+  if (!firstScriptBlock?.config || typeof firstScriptBlock.config !== 'object') {
+    throw new Error('Nao foi possivel localizar o primeiro JavaScript da URA.');
+  }
+
+  const previousCode = String(firstScriptBlock.config.code || '');
+  const patched = patchManagedUraConfigCode(previousCode, installation);
+  if (!patched.changed || patched.code === previousCode) {
+    return { updated: false, message: 'URA ja estava coerente com a configuracao salva.' };
+  }
+
+  firstScriptBlock.config.code = patched.code;
+  const updatedUraPayload = {
+    ...currentUra,
+    options: stringifyIvrOptions(options),
+  };
+
+  await updateIvr(
+    installation.instance,
+    installation.uraIaId,
+    updatedUraPayload,
+    token,
+  );
+
+  return { updated: true, message: 'Patch seguro da URA aplicado.' };
+}
+
+export async function reconfigureManagedAiInstallation({
+  installationId,
+  username,
+  password,
+  code2fa,
+  assistantId,
+  assistantName,
+  preProcessId,
+  buscaProdutosId,
+  downloadImagemId,
+  uraIaId,
+  uraAbId,
+  configSnapshot,
+  applyToClient = false,
+  applyUraPatch = true,
+}) {
+  const currentInstallation = await getAiClientInstallationById(installationId);
+  if (!currentInstallation) {
+    throw new Error('Instalacao de IA nao encontrada.');
+  }
+
+  const nextConfigSnapshot = {
+    ...(currentInstallation.configSnapshot || {}),
+    ...((configSnapshot && typeof configSnapshot === 'object') ? configSnapshot : {}),
+  };
+
+  const updatedInstallation = await updateAiClientInstallationById(installationId, {
+    assistantId: assistantId ?? undefined,
+    assistantName: assistantName ?? undefined,
+    preProcessId: preProcessId ?? undefined,
+    buscaProdutosId: buscaProdutosId ?? undefined,
+    downloadImagemId: downloadImagemId ?? undefined,
+    uraIaId: uraIaId ?? undefined,
+    uraAbId: uraAbId ?? undefined,
+    configSnapshot: nextConfigSnapshot,
+    lastSyncStatus: applyToClient ? 'pending_reconfigure' : currentInstallation.lastSyncStatus,
+    lastSyncError: null,
+  });
+
+  if (!applyToClient) {
+    return {
+      updated: true,
+      appliedToClient: false,
+      message: 'Configuracao da instalacao atualizada no Integra.',
+      installation: updatedInstallation,
+      updatedComponents: [],
+    };
+  }
+
+  if (!isManagedAiProvider(updatedInstallation.provider)) {
+    throw new Error('Somente providers gerenciados suportam reaplicacao automatica.');
+  }
+
+  const token = await authenticateInstance(
+    updatedInstallation.instance,
+    username,
+    password,
+    code2fa,
+  );
+
+  const currentPackage = await getCurrentAiProviderTemplatePackageWithOptions(
+    updatedInstallation.provider,
+    { requireDatabase: true },
+  );
+
+  const automaticComponents = [
+    'assistant',
+    ...getManagedAiUpdateOrder(updatedInstallation.provider),
+  ];
+
+  try {
+    for (const componentKey of automaticComponents.filter((item) => item !== 'assistant')) {
+      const payload = await buildManagedIvrPayload(
+        updatedInstallation.provider,
+        componentKey,
+        updatedInstallation,
+      );
+
+      const componentIdField = COMPONENT_ID_FIELD_BY_KEY[componentKey];
+      await updateIvr(
+        updatedInstallation.instance,
+        updatedInstallation[componentIdField],
+        payload,
+        token,
+      );
+    }
+
+    const assistantPayload = await buildManagedAssistantPayload(
+      updatedInstallation.provider,
+      updatedInstallation,
+    );
+
+    await updateAssistantItem(
+      updatedInstallation.instance,
+      assistantPayload,
+      token,
+    );
+
+    const uraPatchResult =
+      applyUraPatch && updatedInstallation.uraIaId
+        ? await applyManagedAiConfigPatchToUra(updatedInstallation, token)
+        : { updated: false };
+
+    const nextInstalledComponentVersions = {
+      ...(updatedInstallation.installedComponentVersions || {}),
+      ...(currentPackage?.componentVersions || {}),
+    };
+
+    const finalInstallation = await updateAiClientInstallationById(installationId, {
+      installedVersion: currentPackage?.version ?? updatedInstallation.installedVersion,
+      installedComponentVersions: nextInstalledComponentVersions,
+      lastSyncStatus: 'updated',
+      lastSyncError: null,
+    });
+
+    return {
+      updated: true,
+      appliedToClient: true,
+      message: uraPatchResult.updated
+        ? 'Configuracao atualizada no Integra e reaplicada no cliente, incluindo patch seguro na URA.'
+        : 'Configuracao atualizada no Integra e reaplicada no cliente.',
+      installation: finalInstallation,
+      updatedComponents: automaticComponents,
+    };
+  } catch (error) {
+    const readableError = toReadableInstanceError(error);
+
+    await updateAiClientInstallationById(installationId, {
+      lastSyncStatus: 'update_error',
+      lastSyncError: readableError,
+    });
+
+    throw new Error(readableError);
+  }
 }
 
 export async function patchManagedAiUraQuantity({

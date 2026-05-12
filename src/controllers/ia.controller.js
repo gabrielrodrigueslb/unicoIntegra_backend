@@ -6,6 +6,7 @@ import {
   createDefaultAi,
   listManagedAiInstallations,
   patchManagedAiUraQuantity,
+  reconfigureManagedAiInstallation,
   updateAllManagedAiInstallations,
   updateManagedAiInstallation,
 } from '../services/ai.services.js';
@@ -624,6 +625,66 @@ export async function patchAiInstallationUraQuantityController(req, res) {
     console.error('Erro ao aplicar patch seguro na URA da IA:', error);
     return res.status(500).json({
       message: 'Ocorreu um erro ao aplicar o patch seguro na URA da IA.',
+      error: error.message,
+    });
+  }
+}
+
+export async function reconfigureAiInstallationController(req, res) {
+  try {
+    const { id } = req.params;
+    const {
+      username,
+      password,
+      code,
+      requestedBy,
+      assistantId,
+      assistantName,
+      preProcessId,
+      buscaProdutosId,
+      downloadImagemId,
+      uraIaId,
+      uraAbId,
+      configSnapshot,
+      applyToClient,
+      applyUraPatch,
+    } = req.body || {};
+
+    if (
+      applyToClient &&
+      requireManualInstanceAuthIfNeeded(res, { username, password, code })
+    ) {
+      return;
+    }
+
+    const data = await reconfigureManagedAiInstallation({
+      installationId: Number(id),
+      username,
+      password,
+      code2fa: code,
+      assistantId,
+      assistantName,
+      preProcessId,
+      buscaProdutosId,
+      downloadImagemId,
+      uraIaId,
+      uraAbId,
+      configSnapshot,
+      applyToClient: Boolean(applyToClient),
+      applyUraPatch: applyUraPatch !== false,
+    });
+
+    await createLogService(
+      requestedBy || username || 'Sistema',
+      `Reconfigurou a instalacao da IA ${id}${applyToClient ? ' e reaplicou no cliente' : ''}`,
+      data?.installation?.instance || String(id),
+    );
+
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error('Erro ao reconfigurar instalacao de IA:', error);
+    return res.status(500).json({
+      message: 'Ocorreu um erro ao reconfigurar a instalacao da IA.',
       error: error.message,
     });
   }

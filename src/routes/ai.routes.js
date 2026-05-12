@@ -34,6 +34,7 @@ router.get('/versions', aiController.listAiVersionsController);
 router.get('/installations', aiController.listAiInstallationsController);
 router.post('/installations/update-all', aiController.updateAllAiInstallationsController);
 router.post('/installations/:id/update', aiController.updateAiInstallationController);
+router.post('/installations/:id/reconfigure', aiController.reconfigureAiInstallationController);
 router.post('/installations/:id/patch-ura-qtd', aiController.patchAiInstallationUraQuantityController);
 router.post('/installations/audit-ura-snapshots', aiController.auditAiInstallationUraSnapshotsController);
 router.get('/templates', aiController.listAiTemplatesController);

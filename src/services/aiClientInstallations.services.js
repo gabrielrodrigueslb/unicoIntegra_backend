@@ -498,3 +498,119 @@ export async function setAiClientInstallationSyncStatus(
   const currentPackagesByProvider = await getCurrentPackagesByProvider();
   return normalizeInstallationRow(result.rows?.[0] ?? null, currentPackagesByProvider);
 }
+
+export async function updateAiClientInstallationById(
+  id,
+  patch = {},
+) {
+  await ensureAiClientInstallationsReady();
+
+  const current = await adminPool.query(
+    `
+      SELECT *
+      FROM sistema.ai_client_installations
+      WHERE id = $1::int
+      LIMIT 1;
+    `,
+    [Number(id)],
+  );
+
+  const row = current.rows?.[0] ?? null;
+  if (!row) {
+    throw new Error('Instalacao de IA nao encontrada.');
+  }
+
+  const nextPayload = {
+    instance: patch.instance ?? row.instance,
+    provider: patch.provider ?? row.provider,
+    assistantId: normalizeId(
+      patch.assistantId === undefined ? row.assistantId : patch.assistantId,
+    ),
+    assistantName:
+      patch.assistantName === undefined ? row.assistantName : patch.assistantName,
+    installedVersion:
+      patch.installedVersion === undefined
+        ? row.installedVersion
+        : patch.installedVersion,
+    source: patch.source ?? row.source,
+    configSnapshot:
+      patch.configSnapshot === undefined
+        ? parseRowJson(row.configSnapshot)
+        : normalizeJsonValue(patch.configSnapshot),
+    installedComponentVersions:
+      patch.installedComponentVersions === undefined
+        ? parseRowJson(row.installedComponentVersions)
+        : normalizeComponentVersions(patch.installedComponentVersions),
+    preProcessId:
+      patch.preProcessId === undefined ? row.preProcessId : patch.preProcessId,
+    buscaProdutosId:
+      patch.buscaProdutosId === undefined ? row.buscaProdutosId : patch.buscaProdutosId,
+    downloadImagemId:
+      patch.downloadImagemId === undefined ? row.downloadImagemId : patch.downloadImagemId,
+    uraIaId: patch.uraIaId === undefined ? row.uraIaId : patch.uraIaId,
+    uraAbId: patch.uraAbId === undefined ? row.uraAbId : patch.uraAbId,
+    lastSyncStatus: patch.lastSyncStatus ?? row.lastSyncStatus,
+    lastSyncError:
+      patch.lastSyncError === undefined ? row.lastSyncError : patch.lastSyncError,
+  };
+
+  if (!nextPayload.instance) {
+    throw new Error('Instancia e obrigatoria para salvar a instalacao da IA.');
+  }
+
+  if (!nextPayload.provider) {
+    throw new Error('Provider e obrigatorio para salvar a instalacao da IA.');
+  }
+
+  if (!nextPayload.assistantId) {
+    throw new Error('AssistantId e obrigatorio para salvar a instalacao da IA.');
+  }
+
+  const result = await adminPool.query(
+    `
+      UPDATE sistema.ai_client_installations
+      SET
+        instance = $2::varchar(255),
+        provider = $3::varchar(50),
+        "assistantId" = $4::varchar(100),
+        "assistantName" = $5::varchar(255),
+        "installedVersion" = $6::int,
+        source = $7::varchar(50),
+        "configSnapshot" = $8::jsonb,
+        "installedComponentVersions" = $9::jsonb,
+        "preProcessId" = $10::varchar(100),
+        "buscaProdutosId" = $11::varchar(100),
+        "downloadImagemId" = $12::varchar(100),
+        "uraIaId" = $13::varchar(100),
+        "uraAbId" = $14::varchar(100),
+        "lastSyncStatus" = $15::varchar(50),
+        "lastSyncError" = $16::text,
+        "updatedAt" = CURRENT_TIMESTAMP
+      WHERE id = $1::int
+      RETURNING *;
+    `,
+    [
+      Number(id),
+      nextPayload.instance,
+      nextPayload.provider,
+      nextPayload.assistantId,
+      nextPayload.assistantName,
+      nextPayload.installedVersion === null || nextPayload.installedVersion === undefined
+        ? null
+        : Number(nextPayload.installedVersion),
+      nextPayload.source,
+      JSON.stringify(nextPayload.configSnapshot),
+      JSON.stringify(nextPayload.installedComponentVersions),
+      normalizeId(nextPayload.preProcessId),
+      normalizeId(nextPayload.buscaProdutosId),
+      normalizeId(nextPayload.downloadImagemId),
+      normalizeId(nextPayload.uraIaId),
+      normalizeId(nextPayload.uraAbId),
+      nextPayload.lastSyncStatus,
+      nextPayload.lastSyncError,
+    ],
+  );
+
+  const currentPackagesByProvider = await getCurrentPackagesByProvider();
+  return normalizeInstallationRow(result.rows?.[0] ?? null, currentPackagesByProvider);
+}
