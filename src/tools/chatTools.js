@@ -72,22 +72,23 @@ export const chatTools = [
   {
     type: 'function',
     name: 'instalar_integracao_catalogo',
-    description: `Instala integrações, automações e URAs do catálogo atual. Usa o username e password já autenticados na sessão do operador; o usuário precisa informar a URL da instância, o código 2FA e os campos específicos da integração. Catálogo: ${integrationDescription}`,
+    description: `Instala integracoes, automacoes e URAs do catalogo atual. Para autenticar na instancia, a tool usa as credenciais privadas do backend e gera o TOTP automaticamente. O usuario so precisa informar a URL da instancia e os campos especificos da integracao. Catalogo: ${integrationDescription}`,
     parameters: {
       type: 'object',
       properties: {
         template_key: {
           type: 'string',
           enum: integrationKeys,
-          description: 'Chave da integração a instalar.',
+          description: 'Chave da integracao a instalar.',
         },
         instance: {
           type: 'string',
-          description: 'URL base da instância do cliente.',
+          description: 'URL base da instancia do cliente.',
         },
         code: {
           type: 'string',
-          description: 'Código 2FA da instância.',
+          description:
+            'Campo opcional mantido por compatibilidade. O backend prefere gerar o 2FA automaticamente.',
         },
         ip_do_cliente: { type: 'string' },
         authorization: { type: 'string' },
@@ -106,14 +107,14 @@ export const chatTools = [
         apikey: { type: 'string' },
         url: { type: 'string' },
       },
-      required: ['template_key', 'instance', 'code'],
+      required: ['template_key', 'instance'],
       additionalProperties: false,
     },
   },
   {
     type: 'function',
     name: 'criar_ia_catalogo',
-    description: `Cria IAs do catálogo atual. Usa o username e password já autenticados na sessão do operador; o usuário precisa informar a URL da instância, o código 2FA, o nome da IA e os campos específicos do template. Catálogo: ${aiDescription}`,
+    description: `Cria IAs do catalogo atual. Para autenticar na instancia, a tool usa as credenciais privadas do backend e gera o TOTP automaticamente. O usuario so precisa informar a URL da instancia, o nome da IA e os campos especificos do template. Catalogo: ${aiDescription}`,
     parameters: {
       type: 'object',
       properties: {
@@ -124,11 +125,12 @@ export const chatTools = [
         },
         instance: {
           type: 'string',
-          description: 'URL base da instância do cliente.',
+          description: 'URL base da instancia do cliente.',
         },
         code: {
           type: 'string',
-          description: 'Código 2FA da instância.',
+          description:
+            'Campo opcional mantido por compatibilidade. O backend prefere gerar o 2FA automaticamente.',
         },
         name: {
           type: 'string',
@@ -136,7 +138,7 @@ export const chatTools = [
         },
         context: {
           type: 'string',
-          description: 'Contexto da IA de atendimento quando necessário.',
+          description: 'Contexto da IA de atendimento quando necessario.',
         },
         nome_cliente: { type: 'string' },
         apiKey: { type: 'string' },
@@ -149,7 +151,48 @@ export const chatTools = [
         vetorToken: { type: 'string' },
         unidade_negocio_vetor: { type: 'string' },
       },
-      required: ['template_key', 'instance', 'code', 'name'],
+      required: ['template_key', 'instance', 'name'],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: 'function',
+    name: 'diagnosticar_atenderbem',
+    description:
+      'Executa um diagnostico read-only no AtenderBem. Usa as credenciais privadas do backend para autenticar e pode inspecionar assistant, fila, URAs relacionadas e historico do chat. Nunca altera a instancia.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instance: {
+          type: 'string',
+          description: 'URL base da instancia do AtenderBem.',
+        },
+        assistantId: {
+          type: 'string',
+          description: 'ID da IA/assistant a inspecionar.',
+        },
+        assistantName: {
+          type: 'string',
+          description: 'Nome da IA/assistant a inspecionar.',
+        },
+        queueId: {
+          type: 'string',
+          description: 'ID da fila para cruzar com a IA ou com o chat.',
+        },
+        queueName: {
+          type: 'string',
+          description: 'Nome da fila para cruzar com a IA ou com o chat.',
+        },
+        ivrId: {
+          type: 'string',
+          description: 'ID da URA/IVR para inspecao detalhada.',
+        },
+        chatId: {
+          type: 'string',
+          description: 'ID do atendimento/chat a auditar.',
+        },
+      },
+      required: ['instance'],
       additionalProperties: false,
     },
   },

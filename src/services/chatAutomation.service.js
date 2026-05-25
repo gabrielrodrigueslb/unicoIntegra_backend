@@ -8,6 +8,7 @@ import {
   createAiVetor,
   createDefaultAi,
 } from './ai.services.js';
+import { resolveInstanceExecutionCredentials } from './instanceExecutionAuth.services.js';
 import { createLogService } from './logs.services.js';
 
 function normalizeUrl(url) {
@@ -15,17 +16,16 @@ function normalizeUrl(url) {
 }
 
 function ensureExecutionContext(executionContext = {}) {
-  const { authUsername, authPassword } = executionContext;
-
-  if (!authUsername || !authPassword) {
-    throw new Error(
-      'A sessão do operador não está disponível. Faça login novamente antes de usar o Link AI.',
-    );
-  }
-
   return {
-    authUsername,
-    authPassword,
+    operatorName:
+      executionContext.operatorName ||
+      executionContext.authUsername ||
+      'Link AI',
+    instanceAuth: resolveInstanceExecutionCredentials({
+      username: executionContext.authUsername,
+      password: executionContext.authPassword,
+      code2fa: executionContext.code,
+    }),
   };
 }
 
@@ -57,21 +57,17 @@ export async function installIntegrationFromCatalog(args = {}, executionContext)
   const catalog = integrationCatalog[args.template_key];
 
   if (!catalog) {
-    throw new Error(`Integração não suportada: ${args.template_key}.`);
+    throw new Error(`Integracao nao suportada: ${args.template_key}.`);
   }
 
   if (!catalog.automationSupported) {
     throw new Error(
-      `${catalog.name} é um fluxo manual e não pode ser instalado automaticamente pelo chat.`,
+      `${catalog.name} e um fluxo manual e nao pode ser instalado automaticamente pelo chat.`,
     );
   }
 
   if (!args.instance || !String(args.instance).trim()) {
-    throw new Error('Informe a URL da instância.');
-  }
-
-  if (!args.code || !String(args.code).trim()) {
-    throw new Error('Informe o código 2FA da instância.');
+    throw new Error('Informe a URL da instancia.');
   }
 
   validateRequiredArgs(catalog.fields, args);
@@ -85,21 +81,16 @@ export async function installIntegrationFromCatalog(args = {}, executionContext)
 
   const result = await installingIntegration(
     instance,
-    context.authUsername,
-    context.authPassword,
-    String(args.code).trim(),
+    context.instanceAuth.username,
+    context.instanceAuth.password,
+    context.instanceAuth.code2fa,
     integrationData,
   );
 
-  await createLogService(
-    context.authUsername,
-    `Instalou ${catalog.name}`,
-    instance,
-    {
-      generatedByAi: true,
-      source: 'Link AI',
-    },
-  );
+  await createLogService(context.operatorName, `Instalou ${catalog.name}`, instance, {
+    generatedByAi: true,
+    source: 'Link AI',
+  });
 
   return {
     sucesso: true,
@@ -110,6 +101,7 @@ export async function installIntegrationFromCatalog(args = {}, executionContext)
     details: {
       instance,
       type: catalog.type,
+      authMode: context.instanceAuth.mode,
     },
     result,
   };
@@ -119,15 +111,11 @@ export async function createAiFromCatalog(args = {}, executionContext) {
   const catalog = aiCatalog[args.template_key];
 
   if (!catalog) {
-    throw new Error(`IA não suportada: ${args.template_key}.`);
+    throw new Error(`IA nao suportada: ${args.template_key}.`);
   }
 
   if (!args.instance || !String(args.instance).trim()) {
-    throw new Error('Informe a URL da instância.');
-  }
-
-  if (!args.code || !String(args.code).trim()) {
-    throw new Error('Informe o código 2FA da instância.');
+    throw new Error('Informe a URL da instancia.');
   }
 
   if (!args.name || !String(args.name).trim()) {
@@ -136,7 +124,6 @@ export async function createAiFromCatalog(args = {}, executionContext) {
 
   const context = ensureExecutionContext(executionContext);
   const instance = normalizeUrl(args.instance);
-  const code = String(args.code).trim();
   const name = String(args.name).trim();
 
   let result;
@@ -145,9 +132,9 @@ export async function createAiFromCatalog(args = {}, executionContext) {
     case 'atendimento':
       result = await createDefaultAi(
         instance,
-        context.authUsername,
-        context.authPassword,
-        code,
+        context.instanceAuth.username,
+        context.instanceAuth.password,
+        context.instanceAuth.code2fa,
         name,
         args.context || catalog.defaultContext,
       );
@@ -156,9 +143,9 @@ export async function createAiFromCatalog(args = {}, executionContext) {
       validateRequiredArgs(catalog.fields, args);
       result = await createAiAlpha({
         instance,
-        username: context.authUsername,
-        password: context.authPassword,
-        code2fa: code,
+        username: context.instanceAuth.username,
+        password: context.instanceAuth.password,
+        code2fa: context.instanceAuth.code2fa,
         name,
         nome_cliente: args.nome_cliente,
         porta_cliente: args.porta_cliente,
@@ -170,9 +157,9 @@ export async function createAiFromCatalog(args = {}, executionContext) {
       validateRequiredArgs(catalog.fields, args);
       result = await createAiTrier({
         instance,
-        username: context.authUsername,
-        password: context.authPassword,
-        code2fa: code,
+        username: context.instanceAuth.username,
+        password: context.instanceAuth.password,
+        code2fa: context.instanceAuth.code2fa,
         name,
         nome_cliente: args.nomeCliente,
         porta_cliente: args.porta_cliente,
@@ -183,9 +170,9 @@ export async function createAiFromCatalog(args = {}, executionContext) {
       validateRequiredArgs(catalog.fields, args);
       result = await createAiVannon(
         instance,
-        context.authUsername,
-        context.authPassword,
-        code,
+        context.instanceAuth.username,
+        context.instanceAuth.password,
+        context.instanceAuth.code2fa,
         name,
         args.clientEndpoint,
         args.clientName,
@@ -197,9 +184,9 @@ export async function createAiFromCatalog(args = {}, executionContext) {
       validateRequiredArgs(catalog.fields, args);
       result = await createAiVetor(
         instance,
-        context.authUsername,
-        context.authPassword,
-        code,
+        context.instanceAuth.username,
+        context.instanceAuth.password,
+        context.instanceAuth.code2fa,
         name,
         args.vetorToken,
         args.unidade_negocio_vetor,
@@ -208,18 +195,13 @@ export async function createAiFromCatalog(args = {}, executionContext) {
       );
       break;
     default:
-      throw new Error(`IA não suportada: ${catalog.key}.`);
+      throw new Error(`IA nao suportada: ${catalog.key}.`);
   }
 
-  await createLogService(
-    context.authUsername,
-    `Criou ${catalog.name} - ${name}`,
-    instance,
-    {
-      generatedByAi: true,
-      source: 'Link AI',
-    },
-  );
+  await createLogService(context.operatorName, `Criou ${catalog.name} - ${name}`, instance, {
+    generatedByAi: true,
+    source: 'Link AI',
+  });
 
   return {
     sucesso: true,
@@ -230,6 +212,7 @@ export async function createAiFromCatalog(args = {}, executionContext) {
     details: {
       instance,
       name,
+      authMode: context.instanceAuth.mode,
     },
     result,
   };

@@ -1,6 +1,7 @@
 import { gerarBuildProjeto } from './gerarBuild.js';
 import { executarInstalacaoIntegracaoCatalogo } from './installIntegrationFromCatalog.js';
 import { executarCriacaoIaCatalogo } from './createAiFromCatalog.js';
+import { executarDiagnosticoAtenderBem } from './diagnoseAtenderbem.js';
 import {
   configurarExtensaoTrier,
   configurarExtensaoTrierLote,
@@ -18,6 +19,8 @@ export async function executeFunction(name, args = {}, executionContext = {}) {
       return executarInstalacaoIntegracaoCatalogo(args, executionContext);
     case 'criar_ia_catalogo':
       return executarCriacaoIaCatalogo(args, executionContext);
+    case 'diagnosticar_atenderbem':
+      return executarDiagnosticoAtenderBem(args, executionContext);
     default:
       throw new Error(`Funcao nao suportada: ${name}`);
   }

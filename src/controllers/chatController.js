@@ -1,5 +1,10 @@
 import { executeFunction } from '../functions/index.js';
 import { chatTools } from '../tools/chatTools.js';
+import {
+  diagnosticarAtenderBem,
+  extractAtenderBemDiagnosticArgsFromMessage,
+  isAtenderBemDiagnosticIntent,
+} from '../services/atenderbemDiagnostics.service.js';
 import { buildKnowledgeBaseContext } from '../utils/knowledgeBase.js';
 import { logger } from '../utils/logger.js';
 import {
@@ -529,6 +534,17 @@ function collectActionsFromFunctionResult(functionResult) {
   return actions;
 }
 
+function hasDirectAtenderBemDiagnosticArgs(args = null) {
+  if (!args || typeof args !== 'object') {
+    return false;
+  }
+
+  return Boolean(
+    args.instance &&
+      (args.assistantId || args.queueId || args.ivrId || args.chatId),
+  );
+}
+
 export async function postChatController(req, res) {
   const { message, history = [], sessionContext = {} } = req.body ?? {};
 
@@ -653,6 +669,39 @@ export async function postChatController(req, res) {
         action: null,
         actions: [],
         trace: [],
+      });
+    }
+
+    const directDiagnosticArgs = isAtenderBemDiagnosticIntent(message)
+      ? extractAtenderBemDiagnosticArgsFromMessage(message)
+      : null;
+
+    if (hasDirectAtenderBemDiagnosticArgs(directDiagnosticArgs)) {
+      trace.push(
+        createTrace(
+          'Diagnostico AtenderBem identificado diretamente sem passar pelo modelo.',
+          'info',
+        ),
+      );
+
+      const diagnosticResult = await diagnosticarAtenderBem(
+        directDiagnosticArgs,
+        sessionContext,
+      );
+
+      if (Array.isArray(diagnosticResult?.traceSteps)) {
+        diagnosticResult.traceSteps.forEach((step) => {
+          trace.push(createTrace(step, 'success'));
+        });
+      }
+
+      return res.status(200).json({
+        reply:
+          diagnosticResult.reply ||
+          'Diagnostico AtenderBem concluido em modo somente leitura.',
+        action: null,
+        actions: [],
+        trace,
       });
     }
 
@@ -804,5 +853,301 @@ export async function postChatController(req, res) {
       trace: [],
       error: error.message,
     });
+  }
+}
+
+function writeSseEvent(res, type, payload) {
+  res.write(`event: ${type}\n`);
+  res.write(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
+export async function postChatStreamController(req, res) {
+  const { message, history = [], sessionContext = {} } = req.body ?? {};
+
+  if (typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({
+      message: 'O campo "message" e obrigatorio.',
+    });
+  }
+
+  const trace = [];
+  const pushTrace = (messageText, status = 'info') => {
+    const step = createTrace(messageText, status);
+    trace.push(step);
+    writeSseEvent(res, 'trace', step);
+    return step;
+  };
+
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders?.();
+
+  try {
+    pushTrace('Recebendo a mensagem do usuario.');
+
+    if (isAffirmativeMessage(message) && isPendingTrierConfirmation(history)) {
+      const pendingRequest = findLatestTrierExtensionRequestFromHistory(history);
+
+      if (!pendingRequest) {
+        writeSseEvent(res, 'final', {
+          reply:
+            'Nao encontrei os dados anteriores da extensao Trier no historico. Pode me reenviar a URL e o token?',
+          action: null,
+          actions: [],
+          trace: [],
+        });
+        return res.end();
+      }
+
+      pushTrace('Confirmacao da extensao Trier recebida.');
+      const functionName =
+        pendingRequest.type === 'batch'
+          ? 'configurar_extensao_trier_lote'
+          : 'configurar_extensao_trier';
+      const functionArgs =
+        pendingRequest.type === 'batch'
+          ? { items: pendingRequest.items }
+          : pendingRequest.args;
+      pushTrace('Executando configuracao da extensao Trier.');
+      const functionResult = await executeFunction(
+        functionName,
+        functionArgs,
+        sessionContext,
+      );
+      const actions = collectActionsFromFunctionResult(functionResult);
+
+      if (Array.isArray(functionResult?.traceSteps)) {
+        functionResult.traceSteps.forEach((step) => {
+          pushTrace(step, 'success');
+        });
+      }
+
+      pushTrace(
+        functionResult.traceMessage || 'Configuracao da extensao Trier preparada.',
+        'success',
+      );
+
+      writeSseEvent(res, 'final', {
+        reply:
+          pendingRequest.type === 'batch'
+            ? buildTrierExtensionBatchReadyReply(functionResult)
+            : buildTrierExtensionReadyReply(functionResult),
+        action: actions[0] || functionResult.action || null,
+        actions,
+        trace,
+      });
+      return res.end();
+    }
+
+    if (isPendingTrierBatchCompletion(history)) {
+      const batchRequest = buildTrierBatchRequestFromHistory(history, message);
+      writeSseEvent(res, 'final', {
+        reply:
+          batchRequest.items.length <= 1
+            ? buildTrierExtensionBatchMissingReply(batchRequest)
+            : buildTrierExtensionBatchConfirmationReply(batchRequest.items),
+        action: null,
+        actions: [],
+        trace: [],
+      });
+      return res.end();
+    }
+
+    if (isTrierExtensionBatchIntent(message)) {
+      const batchRequest = extractTrierExtensionBatchArgs(message);
+      writeSseEvent(res, 'final', {
+        reply:
+          batchRequest.items.length <= 1
+            ? buildTrierExtensionBatchMissingReply(batchRequest)
+            : buildTrierExtensionBatchConfirmationReply(batchRequest.items),
+        action: null,
+        actions: [],
+        trace: [],
+      });
+      return res.end();
+    }
+
+    if (isTrierExtensionIntent(message)) {
+      const trierArgs = extractTrierExtensionArgs(message);
+      writeSseEvent(res, 'final', {
+        reply:
+          !trierArgs.instance_url || !trierArgs.client_token
+            ? buildTrierExtensionMissingReply(trierArgs)
+            : buildTrierExtensionConfirmationReply(trierArgs),
+        action: null,
+        actions: [],
+        trace: [],
+      });
+      return res.end();
+    }
+
+    const directDiagnosticArgs = isAtenderBemDiagnosticIntent(message)
+      ? extractAtenderBemDiagnosticArgsFromMessage(message)
+      : null;
+
+    if (hasDirectAtenderBemDiagnosticArgs(directDiagnosticArgs)) {
+      pushTrace(
+        'Diagnostico AtenderBem identificado diretamente sem passar pelo modelo.',
+        'info',
+      );
+
+      const diagnosticResult = await diagnosticarAtenderBem(
+        directDiagnosticArgs,
+        sessionContext,
+      );
+
+      if (Array.isArray(diagnosticResult?.traceSteps)) {
+        diagnosticResult.traceSteps.forEach((step) => {
+          pushTrace(step, 'success');
+        });
+      }
+
+      writeSseEvent(res, 'final', {
+        reply:
+          diagnosticResult.reply ||
+          'Diagnostico AtenderBem concluido em modo somente leitura.',
+        action: null,
+        actions: [],
+        trace,
+      });
+      return res.end();
+    }
+
+    const knowledgeBaseContext = buildKnowledgeBaseContext(message);
+    const normalizedHistory = normalizeHistory(history);
+    const input = buildChatInput({
+      knowledgeBaseContext,
+      history: normalizedHistory,
+      message,
+    });
+
+    pushTrace('Base de conhecimento anexada ao contexto.');
+
+    let response = await createChatResponse({
+      input,
+      tools: chatTools,
+    });
+
+    pushTrace('Mensagem enviada ao modelo.');
+
+    let action = null;
+    const actions = [];
+    let toolRound = 0;
+    let usedTools = false;
+
+    while (toolRound < MAX_TOOL_ROUNDS) {
+      const functionCalls = extractFunctionCalls(response);
+
+      if (!functionCalls.length) {
+        break;
+      }
+
+      usedTools = true;
+      input.push(...response.output);
+
+      for (const functionCall of functionCalls) {
+        const args = safeParseArguments(functionCall.arguments);
+        pushTrace(`Executando tool ${functionCall.name}.`, 'info');
+
+        let functionResult;
+
+        try {
+          functionResult = await executeFunction(
+            functionCall.name,
+            args,
+            sessionContext,
+          );
+        } catch (toolError) {
+          logger.warn('Falha ao executar tool do chat.', {
+            toolName: functionCall.name,
+            message: toolError.message,
+          });
+
+          pushTrace(
+            toolError.message ||
+              `Falha ao executar a tool ${functionCall.name}.`,
+            'error',
+          );
+
+          input.push({
+            type: 'function_call_output',
+            call_id: functionCall.call_id,
+            output: JSON.stringify({
+              sucesso: false,
+              tool: functionCall.name,
+              error:
+                toolError.message ||
+                `Falha ao executar a tool ${functionCall.name}.`,
+            }),
+          });
+
+          continue;
+        }
+
+        const functionActions = collectActionsFromFunctionResult(functionResult);
+
+        if (functionActions.length) {
+          actions.push(...functionActions);
+          action = functionActions[0];
+        } else if (functionResult?.action) {
+          action = functionResult.action;
+        }
+
+        if (Array.isArray(functionResult?.traceSteps)) {
+          functionResult.traceSteps.forEach((step) => {
+            pushTrace(step, 'success');
+          });
+        }
+
+        if (functionResult?.traceMessage) {
+          pushTrace(functionResult.traceMessage, 'success');
+        } else {
+          pushTrace(`Tool ${functionCall.name} concluida.`, 'success');
+        }
+
+        input.push({
+          type: 'function_call_output',
+          call_id: functionCall.call_id,
+          output: JSON.stringify(functionResult),
+        });
+      }
+
+      toolRound += 1;
+      response = await createChatResponse({
+        input,
+        tools: chatTools,
+      });
+
+      pushTrace('Solicitando resposta final ao modelo.');
+    }
+
+    const reply =
+      extractResponseText(response) ||
+      (action?.type === 'download'
+        ? 'Build gerado com sucesso. O download ja esta disponivel.'
+        : 'Nao consegui gerar uma resposta final.');
+
+    writeSseEvent(res, 'final', {
+      reply,
+      action: actions[0] || action,
+      actions,
+      trace: usedTools ? trace : [],
+    });
+    return res.end();
+  } catch (error) {
+    logger.error('Falha ao processar /chat/stream', {
+      message: error.message,
+      stack: error.stack,
+    });
+
+    pushTrace('Ocorreu um erro interno ao processar a solicitacao.', 'error');
+    writeSseEvent(res, 'error', {
+      message:
+        'Ocorreu um erro ao falar com a IA. Verifique a configuracao da API e tente novamente.',
+      error: error.message,
+      trace,
+    });
+    return res.end();
   }
 }
