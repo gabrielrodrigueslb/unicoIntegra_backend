@@ -175,8 +175,14 @@ const MANAGED_AI_PROVIDER_DEFINITIONS = {
         assistantDisplayName: input.name ?? '',
         nome_cliente: input.nome_cliente ?? input.nomeCliente ?? input.clientName ?? '',
         apiKey: input.apiKey ?? '',
-        url_vtex_variable:
-          input.url_vtex_variable ?? input.url_vtex_var ?? input.urlVtex ?? '',
+        url_vtex_variable: normalizeVtexBaseUrl(
+          input.url_vtex_variable ??
+            input.url_vtex_var ??
+            input.urlVtex ??
+            input.vtexAccountEndpoint ??
+            input.vtex_endpoint ??
+            '',
+        ),
         vtex_app_key_variable:
           input.vtex_app_key_variable ?? input.vtex_app_key ?? input.vtexAppKey ?? '',
         vtex_app_token_variable:
@@ -201,7 +207,9 @@ const MANAGED_AI_PROVIDER_DEFINITIONS = {
         nome_cliente_var: config.nome_cliente || '',
         api_key: config.apiKey || '',
         url_cliente: instance,
-        url_vtex_variable: config.url_vtex_variable || config.url_vtex_var || '',
+        url_vtex_variable: normalizeVtexBaseUrl(
+          config.url_vtex_variable || config.url_vtex_var || '',
+        ),
         vtex_app_key_variable:
           config.vtex_app_key_variable || config.vtex_app_key || '',
         vtex_app_token_variable:
@@ -479,6 +487,47 @@ export function inferManagedAiProviderFromPayload(payload = {}) {
 export function getManagedAiProviderFallbackVersion(provider) {
   const definition = getManagedAiProviderDefinition(provider);
   return Number(definition?.fallbackVersion || 1);
+}
+
+export function normalizeVtexBaseUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  let candidate = raw;
+
+  if (candidate.startsWith('http://') || candidate.startsWith('https://')) {
+    try {
+      const { hostname } = new URL(candidate);
+      candidate = hostname;
+    } catch {
+      candidate = candidate
+        .replace(/^https?:\/\//i, '')
+        .replace(/\/.*$/, '')
+        .trim();
+    }
+  } else {
+    candidate = candidate.replace(/\/.*$/, '').trim();
+  }
+
+  candidate = candidate.replace(/\.+$/, '').toLowerCase();
+
+  if (!candidate) return '';
+
+  if (candidate.includes('vtexcommercestable.com.br')) {
+    return `https://${candidate}`.replace(/\/+$/, '');
+  }
+
+  if (!candidate.includes('.')) {
+    candidate = `${candidate}.vtexcommercestable.com.br`;
+    return `https://${candidate}`.replace(/\/+$/, '');
+  }
+
+  const normalizedHost = candidate.replace(/^www\./, '');
+  const endpoint = normalizedHost.split('.')[0];
+
+  if (!endpoint) return '';
+
+  return `https://${endpoint}.vtexcommercestable.com.br`;
 }
 
 function getDominio(url) {

@@ -188,7 +188,7 @@ export const aiCatalog = {
     description: 'IA conectada ao ecossistema VTEX.',
     fields: [
       { inputKey: 'nomeCliente', label: 'Nome da loja' },
-      { inputKey: 'url_vtex_variable', label: 'URL base VTEX' },
+      { inputKey: 'url_vtex_variable', label: 'Endpoint do e-commerce VTEX' },
       { inputKey: 'vtex_app_key_variable', label: 'VTEX App Key' },
       { inputKey: 'vtex_app_token_variable', label: 'VTEX App Token' },
       { inputKey: 'apiKey', label: 'API Key global' },

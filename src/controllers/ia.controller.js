@@ -31,6 +31,7 @@ import {
 } from '../services/aiTemplateWorkspace.services.js';
 import { auditIntegratedAiUraSnapshots } from '../services/aiUraSnapshotAudit.services.js';
 import { listAiVersions } from '../services/aiVersion.services.js';
+import { normalizeVtexBaseUrl } from '../services/aiProviderCatalog.js';
 import { isAutomatedInstanceAuthEnabled } from '../services/instanceExecutionAuth.services.js';
 import { createLogService } from '../services/logs.services.js';
 
@@ -383,7 +384,13 @@ export async function createAiVtexController(req, res) {
       name,
       nome_cliente: nome_cliente || nomeCliente || clientName,
       apiKey,
-      url_vtex_variable: url_vtex_variable || url_vtex_var || urlVtex,
+      url_vtex_variable: normalizeVtexBaseUrl(
+        url_vtex_variable ||
+          url_vtex_var ||
+          urlVtex ||
+          vtex_endpoint ||
+          vtexAccountEndpoint,
+      ),
       vtex_app_key_variable:
         vtex_app_key_variable || vtex_app_key || vtexAppKey,
       vtex_app_token_variable:
@@ -416,7 +423,10 @@ export async function createAiVtexController(req, res) {
     if (!vtexPayload.url_vtex_variable) {
       return res
         .status(400)
-        .json({ message: 'O campo "url_vtex_variable" é obrigatório' });
+        .json({
+          message:
+            'O campo "url_vtex_variable" (endpoint do e-commerce VTEX) � obrigat�rio',
+        });
     }
     if (!vtexPayload.vtex_app_key_variable) {
       return res
@@ -1005,4 +1015,5 @@ export async function rollbackAiTemplateWorkspaceController(req, res) {
     });
   }
 }
+
 

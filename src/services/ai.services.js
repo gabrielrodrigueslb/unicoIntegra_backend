@@ -12,6 +12,7 @@ import {
   getManagedAiUpdateOrder,
   isManagedAiProvider,
   isAiProviderUpdateBlocked,
+  normalizeVtexBaseUrl,
 } from './aiProviderCatalog.js';
 import {
   getCurrentAiProviderTemplatePackageWithOptions,
@@ -404,7 +405,9 @@ export async function createAiVtex({
       name,
       nome_cliente,
       apiKey,
-      url_vtex_variable: url_vtex_variable || url_vtex_var,
+      url_vtex_variable: normalizeVtexBaseUrl(
+        url_vtex_variable || url_vtex_var,
+      ),
       vtex_app_key_variable: vtex_app_key_variable || vtex_app_key,
       vtex_app_token_variable: vtex_app_token_variable || vtex_app_token,
       quantidade_de_produtos,
@@ -886,7 +889,9 @@ function buildManagedUraVarAssignments(installation) {
         Number.isFinite(quantidadeDeProdutos) && quantidadeDeProdutos > 0
           ? Math.min(7, quantidadeDeProdutos)
           : 3,
-      url_vtex_var: config.url_vtex_variable || config.url_vtex_var || '',
+      url_vtex_var: normalizeVtexBaseUrl(
+        config.url_vtex_variable || config.url_vtex_var || '',
+      ),
       vtex_app_key: config.vtex_app_key_variable || config.vtex_app_key || '',
       vtex_app_token:
         config.vtex_app_token_variable || config.vtex_app_token || '',

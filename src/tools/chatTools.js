@@ -146,6 +146,7 @@ export const chatTools = [
         unidade_negocio: { type: 'string' },
         nomeCliente: { type: 'string' },
         url_vtex_variable: { type: 'string' },
+        vtex_endpoint: { type: 'string' },
         vtex_app_key_variable: { type: 'string' },
         vtex_app_token_variable: { type: 'string' },
         quantidade_de_produtos: { type: 'string' },
