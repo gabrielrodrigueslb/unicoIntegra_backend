@@ -23,6 +23,13 @@ const COMPONENT_FIELD_MAP = {
   uraAb: 'uraAbTemplate',
 };
 
+function getSupportedComponents(provider) {
+  const definition = getManagedAiProviderDefinition(provider);
+  return Object.keys(definition?.templatePaths || {}).filter((key) =>
+    MANAGED_AI_COMPONENT_KEYS.includes(key),
+  );
+}
+
 function normalizeProvider(provider) {
   return String(provider || '').trim().toLowerCase();
 }
@@ -346,6 +353,7 @@ async function getProviderContext(provider) {
     packageCurrent,
     baseHistory: providerBaseHistory,
     packageHistory,
+    supportedComponents: getSupportedComponents(normalizedProvider),
     hasDraftChanges: buildHasChanges(draft, baseCurrent, packageCurrent),
   };
 }
@@ -371,6 +379,7 @@ export async function listAiTemplateWorkspaces() {
     return {
       provider,
       displayName: getManagedAiProviderDefinition(provider)?.displayName || provider,
+      supportedComponents: getSupportedComponents(provider),
       draftExists: Boolean(draft),
       hasDraftChanges: buildHasChanges(draft, baseCurrent, packageCurrent),
       draftUpdatedAt: draft?.updatedAt ?? null,
