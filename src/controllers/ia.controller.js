@@ -1,6 +1,7 @@
 import {
   createAiAlpha,
   createAiTrier,
+  createAiVtex,
   createAiVannon,
   createAiVetor,
   createDefaultAi,
@@ -52,7 +53,7 @@ function toReadableError(error) {
     try {
       return JSON.stringify(responseData);
     } catch {
-      return 'Erro de integração ao criar IA.';
+      return 'Erro de integraÃ§Ã£o ao criar IA.';
     }
   }
 
@@ -282,7 +283,7 @@ export async function createAiVannonController(req, res) {
         requestedBy,
       } = req.body;
 
-    // 2. Validar campos obrigatórios
+    // 2. Validar campos obrigatÃ³rios
     if (!instance) {
       return res
         .status(400)
@@ -301,7 +302,7 @@ export async function createAiVannonController(req, res) {
     if (!clientEndpoint) {
       return res
         .status(400)
-        .json({ message: 'O campo "clientEndpoint" Ã© obrigatÃ³rio' });
+        .json({ message: 'O campo "clientEndpoint" é obrigatório' });
     }
     if (!cepLoja) {
       return res
@@ -337,6 +338,123 @@ export async function createAiVannonController(req, res) {
     );
 
     // 4. Retornar a resposta de sucesso
+    res.status(200).json(aiResponse);
+  } catch (error) {
+    console.error('Erro ao criar IA:', error);
+    const details = toReadableError(error);
+    res.status(500).json({
+      message: `Ocorreu um erro ao criar a IA. ${details}`,
+      error: details,
+    });
+  }
+}
+
+export async function createAiVtexController(req, res) {
+  try {
+    const {
+      instance,
+      username,
+      password,
+      name,
+      nome_cliente,
+      nomeCliente,
+      clientName,
+      apiKey,
+      url_vtex_variable,
+      url_vtex_var,
+      urlVtex,
+      vtex_app_key_variable,
+      vtex_app_key,
+      vtexAppKey,
+      vtex_app_token_variable,
+      vtex_app_token,
+      vtexAppToken,
+      quantidade_de_produtos,
+      quantidadeDeProdutos,
+      code,
+      requestedBy,
+    } = req.body;
+
+    const vtexPayload = {
+      instance,
+      username,
+      password,
+      code2fa: code,
+      name,
+      nome_cliente: nome_cliente || nomeCliente || clientName,
+      apiKey,
+      url_vtex_variable: url_vtex_variable || url_vtex_var || urlVtex,
+      vtex_app_key_variable:
+        vtex_app_key_variable || vtex_app_key || vtexAppKey,
+      vtex_app_token_variable:
+        vtex_app_token_variable || vtex_app_token || vtexAppToken,
+      quantidade_de_produtos:
+        quantidade_de_produtos ?? quantidadeDeProdutos ?? 3,
+    };
+    const quantidadeDeProdutosValue = Number(vtexPayload.quantidade_de_produtos);
+
+    if (!instance) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "instance" é obrigatório' });
+    }
+    if (!name) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "name" (signaturename) é obrigatório' });
+    }
+    if (!vtexPayload.nome_cliente) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "nome_cliente" é obrigatório' });
+    }
+    if (!apiKey) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "apiKey" é obrigatório' });
+    }
+    if (!vtexPayload.url_vtex_variable) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "url_vtex_variable" é obrigatório' });
+    }
+    if (!vtexPayload.vtex_app_key_variable) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "vtex_app_key_variable" é obrigatório' });
+    }
+    if (!vtexPayload.vtex_app_token_variable) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "vtex_app_token_variable" é obrigatório' });
+    }
+    if (
+      !Number.isFinite(quantidadeDeProdutosValue) ||
+      quantidadeDeProdutosValue < 1
+    ) {
+      return res.status(400).json({
+        message:
+          'O campo "quantidade_de_produtos" deve ser maior que zero.',
+      });
+    }
+    if (quantidadeDeProdutosValue > 7) {
+      return res.status(400).json({
+        message:
+          'O campo "quantidade_de_produtos" deve ter no maximo 7 itens.',
+      });
+    }
+    if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
+      return;
+    }
+
+    const aiResponse = await createAiVtex(vtexPayload);
+    const currentUser = requestedBy || username || 'Sistema';
+    await createLogService(
+      currentUser,
+      `Criou a IA da VTEX - ${name}`,
+      instance,
+    );
+
     res.status(200).json(aiResponse);
   } catch (error) {
     console.error('Erro ao criar IA:', error);
@@ -435,7 +553,7 @@ export async function createAiController(req, res) {
     // 1. Obter todos os dados do body
     const { instance, username, password, code, name, context, requestedBy } = req.body;
 
-    // 2. Validar campos obrigatórios
+    // 2. Validar campos obrigatÃ³rios
     if (!instance) {
       return res
         .status(400)
@@ -643,6 +761,8 @@ export async function reconfigureAiInstallationController(req, res) {
       preProcessId,
       buscaProdutosId,
       downloadImagemId,
+      gerarCheckoutId,
+      transferirHumanoId,
       uraIaId,
       uraAbId,
       configSnapshot,
@@ -667,6 +787,8 @@ export async function reconfigureAiInstallationController(req, res) {
       preProcessId,
       buscaProdutosId,
       downloadImagemId,
+      gerarCheckoutId,
+      transferirHumanoId,
       uraIaId,
       uraAbId,
       configSnapshot,
@@ -883,5 +1005,4 @@ export async function rollbackAiTemplateWorkspaceController(req, res) {
     });
   }
 }
-
 

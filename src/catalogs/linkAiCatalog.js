@@ -181,6 +181,20 @@ export const aiCatalog = {
       { inputKey: 'apiKey', label: 'API Key global' },
     ],
   },
+  vtex: {
+    key: 'vtex',
+    name: 'IA - VTEX',
+    endpoint: '/vtex',
+    description: 'IA conectada ao ecossistema VTEX.',
+    fields: [
+      { inputKey: 'nomeCliente', label: 'Nome da loja' },
+      { inputKey: 'url_vtex_variable', label: 'URL base VTEX' },
+      { inputKey: 'vtex_app_key_variable', label: 'VTEX App Key' },
+      { inputKey: 'vtex_app_token_variable', label: 'VTEX App Token' },
+      { inputKey: 'apiKey', label: 'API Key global' },
+      { inputKey: 'quantidade_de_produtos', label: 'Quantidade de produtos' },
+    ],
+  },
   vannon: {
     key: 'vannon',
     name: 'IA - Vannon',

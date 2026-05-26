@@ -30,6 +30,10 @@ export function parseTemplateContent(content, variables = {}, fileExt = '.json')
     fileContent = Buffer.from(fileContent, 'base64').toString('utf-8');
   }
 
+  if (typeof fileContent === 'string' && fileContent.charCodeAt(0) === 0xfeff) {
+    fileContent = fileContent.slice(1);
+  }
+
   const parsedContent = applyTemplate(fileContent, variables);
   return JSON.parse(parsedContent);
 }

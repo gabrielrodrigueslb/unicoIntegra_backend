@@ -25,6 +25,14 @@ const PROVIDER_VAR_MAPPINGS = {
     nome_cliente_var: { targetKey: 'nome_cliente', type: 'string' },
     api_port: { targetKey: 'porta_cliente', type: 'string' },
   },
+  vtex: {
+    api_key_var: { targetKey: 'apiKey', type: 'string' },
+    nome_cliente_var: { targetKey: 'nome_cliente', type: 'string' },
+    qtd_produtos: { targetKey: 'quantidade_de_produtos', type: 'number' },
+    url_vtex_var: { targetKey: 'url_vtex_variable', type: 'string' },
+    vtex_app_key: { targetKey: 'vtex_app_key_variable', type: 'string' },
+    vtex_app_token: { targetKey: 'vtex_app_token_variable', type: 'string' },
+  },
   vannon: {
     api_key_var: { targetKey: 'apiKey', type: 'string' },
     nome_cliente: { targetKey: 'clientName', type: 'string' },
@@ -243,6 +251,8 @@ async function auditSingleInstallationUraSnapshot(installation, tokenCache) {
     preProcessId: installation.preProcessId,
     buscaProdutosId: installation.buscaProdutosId,
     downloadImagemId: installation.downloadImagemId,
+    gerarCheckoutId: installation.gerarCheckoutId,
+    transferirHumanoId: installation.transferirHumanoId,
     uraIaId: installation.uraIaId,
     uraAbId: installation.uraAbId,
     lastSyncStatus: installation.lastSyncStatus,

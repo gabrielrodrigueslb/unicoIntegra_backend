@@ -183,6 +183,8 @@ function normalizeInstallationRow(row, currentPackagesByProvider = new Map()) {
     preProcessId: normalizeId(row.preProcessId),
     buscaProdutosId: normalizeId(row.buscaProdutosId),
     downloadImagemId: normalizeId(row.downloadImagemId),
+    gerarCheckoutId: normalizeId(row.gerarCheckoutId),
+    transferirHumanoId: normalizeId(row.transferirHumanoId),
     uraIaId: normalizeId(row.uraIaId),
     uraAbId: normalizeId(row.uraAbId),
     lastSyncStatus: row.lastSyncStatus || 'unknown',
@@ -229,6 +231,8 @@ export async function ensureAiClientInstallationsTableExists() {
           "preProcessId" VARCHAR(100),
           "buscaProdutosId" VARCHAR(100),
           "downloadImagemId" VARCHAR(100),
+          "gerarCheckoutId" VARCHAR(100),
+          "transferirHumanoId" VARCHAR(100),
           "uraIaId" VARCHAR(100),
           "uraAbId" VARCHAR(100),
           "lastSyncStatus" VARCHAR(50) NOT NULL DEFAULT 'installed',
@@ -241,6 +245,16 @@ export async function ensureAiClientInstallationsTableExists() {
       await adminPool.query(`
         ALTER TABLE sistema.ai_client_installations
         ADD COLUMN IF NOT EXISTS "installedComponentVersions" JSONB;
+      `);
+
+      await adminPool.query(`
+        ALTER TABLE sistema.ai_client_installations
+        ADD COLUMN IF NOT EXISTS "gerarCheckoutId" VARCHAR(100);
+      `);
+
+      await adminPool.query(`
+        ALTER TABLE sistema.ai_client_installations
+        ADD COLUMN IF NOT EXISTS "transferirHumanoId" VARCHAR(100);
       `);
 
       await adminPool.query(`
@@ -309,6 +323,8 @@ export async function upsertAiClientInstallation(record = {}) {
     preProcessId: normalizeId(record.preProcessId),
     buscaProdutosId: normalizeId(record.buscaProdutosId),
     downloadImagemId: normalizeId(record.downloadImagemId),
+    gerarCheckoutId: normalizeId(record.gerarCheckoutId),
+    transferirHumanoId: normalizeId(record.transferirHumanoId),
     uraIaId: normalizeId(record.uraIaId),
     uraAbId: normalizeId(record.uraAbId),
     lastSyncStatus: record.lastSyncStatus || 'installed',
@@ -341,6 +357,8 @@ export async function upsertAiClientInstallation(record = {}) {
         "preProcessId",
         "buscaProdutosId",
         "downloadImagemId",
+        "gerarCheckoutId",
+        "transferirHumanoId",
         "uraIaId",
         "uraAbId",
         "lastSyncStatus",
@@ -361,8 +379,10 @@ export async function upsertAiClientInstallation(record = {}) {
         $11::varchar(100),
         $12::varchar(100),
         $13::varchar(100),
-        $14::varchar(50),
-        $15::text,
+        $14::varchar(100),
+        $15::varchar(100),
+        $16::varchar(50),
+        $17::text,
         CURRENT_TIMESTAMP
       )
       ON CONFLICT (instance, "assistantId")
@@ -376,6 +396,8 @@ export async function upsertAiClientInstallation(record = {}) {
         "preProcessId" = EXCLUDED."preProcessId",
         "buscaProdutosId" = EXCLUDED."buscaProdutosId",
         "downloadImagemId" = EXCLUDED."downloadImagemId",
+        "gerarCheckoutId" = EXCLUDED."gerarCheckoutId",
+        "transferirHumanoId" = EXCLUDED."transferirHumanoId",
         "uraIaId" = EXCLUDED."uraIaId",
         "uraAbId" = EXCLUDED."uraAbId",
         "lastSyncStatus" = EXCLUDED."lastSyncStatus",
@@ -395,6 +417,8 @@ export async function upsertAiClientInstallation(record = {}) {
       payload.preProcessId,
       payload.buscaProdutosId,
       payload.downloadImagemId,
+      payload.gerarCheckoutId,
+      payload.transferirHumanoId,
       payload.uraIaId,
       payload.uraAbId,
       payload.lastSyncStatus,
@@ -547,6 +571,12 @@ export async function updateAiClientInstallationById(
       patch.buscaProdutosId === undefined ? row.buscaProdutosId : patch.buscaProdutosId,
     downloadImagemId:
       patch.downloadImagemId === undefined ? row.downloadImagemId : patch.downloadImagemId,
+    gerarCheckoutId:
+      patch.gerarCheckoutId === undefined ? row.gerarCheckoutId : patch.gerarCheckoutId,
+    transferirHumanoId:
+      patch.transferirHumanoId === undefined
+        ? row.transferirHumanoId
+        : patch.transferirHumanoId,
     uraIaId: patch.uraIaId === undefined ? row.uraIaId : patch.uraIaId,
     uraAbId: patch.uraAbId === undefined ? row.uraAbId : patch.uraAbId,
     lastSyncStatus: patch.lastSyncStatus ?? row.lastSyncStatus,
@@ -581,10 +611,12 @@ export async function updateAiClientInstallationById(
         "preProcessId" = $10::varchar(100),
         "buscaProdutosId" = $11::varchar(100),
         "downloadImagemId" = $12::varchar(100),
-        "uraIaId" = $13::varchar(100),
-        "uraAbId" = $14::varchar(100),
-        "lastSyncStatus" = $15::varchar(50),
-        "lastSyncError" = $16::text,
+        "gerarCheckoutId" = $13::varchar(100),
+        "transferirHumanoId" = $14::varchar(100),
+        "uraIaId" = $15::varchar(100),
+        "uraAbId" = $16::varchar(100),
+        "lastSyncStatus" = $17::varchar(50),
+        "lastSyncError" = $18::text,
         "updatedAt" = CURRENT_TIMESTAMP
       WHERE id = $1::int
       RETURNING *;
@@ -604,6 +636,8 @@ export async function updateAiClientInstallationById(
       normalizeId(nextPayload.preProcessId),
       normalizeId(nextPayload.buscaProdutosId),
       normalizeId(nextPayload.downloadImagemId),
+      normalizeId(nextPayload.gerarCheckoutId),
+      normalizeId(nextPayload.transferirHumanoId),
       normalizeId(nextPayload.uraIaId),
       normalizeId(nextPayload.uraAbId),
       nextPayload.lastSyncStatus,

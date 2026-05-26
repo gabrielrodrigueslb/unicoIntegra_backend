@@ -1,6 +1,7 @@
 import {
   alpha7Functions,
   trierFunctions,
+  vtexFunctions,
   vannonFunctions,
   vectorFunctions,
 } from './aiFunctions.js';
@@ -15,6 +16,7 @@ import {
 import {
   getCurrentAiProviderTemplatePackageWithOptions,
   loadAiProviderTemplateComponent,
+  syncCurrentAiProviderTemplatesToDb,
 } from './aiProviderTemplate.services.js';
 import {
   getAiClientInstallationById,
@@ -38,6 +40,7 @@ import { createAiVersionSnapshot } from './aiVersion.services.js';
 const MANAGED_PROVIDER_INSTALLERS = {
   alpha7: alpha7Functions,
   trier: trierFunctions,
+  vtex: vtexFunctions,
   vannon: vannonFunctions,
   vetor: vectorFunctions,
 };
@@ -45,6 +48,8 @@ const MANAGED_PROVIDER_INSTALLERS = {
 const COMPONENT_ID_FIELD_BY_KEY = {
   downloadImagem: 'downloadImagemId',
   buscaProdutos: 'buscaProdutosId',
+  gerarCheckout: 'gerarCheckoutId',
+  transferirHumano: 'transferirHumanoId',
   ura: 'uraIaId',
   uraAb: 'uraAbId',
   preProcess: 'preProcessId',
@@ -117,6 +122,8 @@ function buildManagedInstallationIds(record) {
     preProcessId: record.preProcessId,
     buscaProdutosId: record.buscaProdutosId,
     downloadImagemId: record.downloadImagemId,
+    gerarCheckoutId: record.gerarCheckoutId,
+    transferirHumanoId: record.transferirHumanoId,
     uraIaId: record.uraIaId,
     uraAbId: record.uraAbId,
   };
@@ -164,6 +171,8 @@ async function createManagedIntegratedAi({ provider, auth, configInput }) {
   if (!installArtifacts) {
     throw new Error(`Provider de IA nao suportado: ${provider}`);
   }
+
+  await syncCurrentAiProviderTemplatesToDb();
 
   const currentPackage = await getCurrentAiProviderTemplatePackageWithOptions(provider, {
     requireDatabase: true,
@@ -213,7 +222,7 @@ async function createManagedIntegratedAi({ provider, auth, configInput }) {
       token,
     );
 
-    await upsertAiClientInstallation({
+    const installationRecord = await upsertAiClientInstallation({
       instance: auth.instance,
       provider,
       assistantId,
@@ -225,6 +234,8 @@ async function createManagedIntegratedAi({ provider, auth, configInput }) {
       preProcessId: installedIds.preProcessId,
       buscaProdutosId: installedIds.buscaProdutosId,
       downloadImagemId: installedIds.downloadImagemId,
+      gerarCheckoutId: installedIds.gerarCheckoutId,
+      transferirHumanoId: installedIds.transferirHumanoId,
       uraIaId: installedIds.uraIaId,
       uraAbId: installedIds.uraAbId,
       lastSyncStatus: 'installed',
@@ -232,7 +243,27 @@ async function createManagedIntegratedAi({ provider, auth, configInput }) {
     });
 
     await tryCreateAiVersionSnapshot(auth.instance, assistantPayload);
-    return response;
+    return {
+      ...response,
+      supportFlows: {
+        preProcessId: installedIds.preProcessId ? String(installedIds.preProcessId) : null,
+        buscaProdutosId: installedIds.buscaProdutosId
+          ? String(installedIds.buscaProdutosId)
+          : null,
+        downloadImagemId: installedIds.downloadImagemId
+          ? String(installedIds.downloadImagemId)
+          : null,
+        gerarCheckoutId: installedIds.gerarCheckoutId
+          ? String(installedIds.gerarCheckoutId)
+          : null,
+        transferirHumanoId: installedIds.transferirHumanoId
+          ? String(installedIds.transferirHumanoId)
+          : null,
+        uraIaId: installedIds.uraIaId ? String(installedIds.uraIaId) : null,
+        uraAbId: installedIds.uraAbId ? String(installedIds.uraAbId) : null,
+      },
+      installation: installationRecord,
+    };
   } catch (error) {
     console.error(
       `Falha ao configurar a IA ${provider}:`,
@@ -346,6 +377,37 @@ export async function createAiTrier({
       nome_cliente,
       porta_cliente,
       apiKey,
+    },
+  });
+}
+
+export async function createAiVtex({
+  instance,
+  username,
+  password,
+  code2fa,
+  name,
+  nome_cliente,
+  apiKey,
+  url_vtex_variable,
+  url_vtex_var,
+  vtex_app_key_variable,
+  vtex_app_key,
+  vtex_app_token_variable,
+  vtex_app_token,
+  quantidade_de_produtos,
+}) {
+  return createManagedIntegratedAi({
+    provider: 'vtex',
+    auth: { instance, username, password, code2fa },
+    configInput: {
+      name,
+      nome_cliente,
+      apiKey,
+      url_vtex_variable: url_vtex_variable || url_vtex_var,
+      vtex_app_key_variable: vtex_app_key_variable || vtex_app_key,
+      vtex_app_token_variable: vtex_app_token_variable || vtex_app_token,
+      quantidade_de_produtos,
     },
   });
 }
@@ -560,6 +622,8 @@ export async function updateManagedAiInstallation({
       'Esta instalacao nao possui dados suficientes para atualizar. Complete os IDs e a configuracao primeiro.',
     );
   }
+
+  await syncCurrentAiProviderTemplatesToDb();
 
   const currentPackage = await getCurrentAiProviderTemplatePackageWithOptions(
     installation.provider,
@@ -808,7 +872,24 @@ function buildManagedUraVarAssignments(installation) {
       url_cliente_var: installation.instance,
       api_key_var: config.apiKey || '',
       nome_cliente_var: config.nome_cliente || '',
-      porta_cliente_var: config.porta_cliente || '',
+      api_port: config.porta_cliente || '',
+    };
+  }
+
+  if (provider === 'vtex') {
+    const quantidadeDeProdutos = Number(config.quantidade_de_produtos);
+    return {
+      url_cliente_var: installation.instance,
+      api_key_var: config.apiKey || '',
+      nome_cliente_var: config.nome_cliente || '',
+      qtd_produtos:
+        Number.isFinite(quantidadeDeProdutos) && quantidadeDeProdutos > 0
+          ? Math.min(7, quantidadeDeProdutos)
+          : 3,
+      url_vtex_var: config.url_vtex_variable || config.url_vtex_var || '',
+      vtex_app_key: config.vtex_app_key_variable || config.vtex_app_key || '',
+      vtex_app_token:
+        config.vtex_app_token_variable || config.vtex_app_token || '',
     };
   }
 
@@ -942,6 +1023,8 @@ export async function reconfigureManagedAiInstallation({
   preProcessId,
   buscaProdutosId,
   downloadImagemId,
+  gerarCheckoutId,
+  transferirHumanoId,
   uraIaId,
   uraAbId,
   configSnapshot,
@@ -964,6 +1047,8 @@ export async function reconfigureManagedAiInstallation({
     preProcessId: preProcessId ?? undefined,
     buscaProdutosId: buscaProdutosId ?? undefined,
     downloadImagemId: downloadImagemId ?? undefined,
+    gerarCheckoutId: gerarCheckoutId ?? undefined,
+    transferirHumanoId: transferirHumanoId ?? undefined,
     uraIaId: uraIaId ?? undefined,
     uraAbId: uraAbId ?? undefined,
     configSnapshot: nextConfigSnapshot,
@@ -991,6 +1076,8 @@ export async function reconfigureManagedAiInstallation({
     password,
     code2fa,
   );
+
+  await syncCurrentAiProviderTemplatesToDb();
 
   const currentPackage = await getCurrentAiProviderTemplatePackageWithOptions(
     updatedInstallation.provider,

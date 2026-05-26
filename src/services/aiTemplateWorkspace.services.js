@@ -17,6 +17,8 @@ const COMPONENT_FIELD_MAP = {
   preProcess: 'preProcessTemplate',
   buscaProdutos: 'buscaProdutosTemplate',
   downloadImagem: 'downloadImagemTemplate',
+  gerarCheckout: 'gerarCheckoutTemplate',
+  transferirHumano: 'transferirHumanoTemplate',
   ura: 'uraTemplate',
   uraAb: 'uraAbTemplate',
 };
@@ -149,6 +151,8 @@ function buildDraftPayload(provider, payload = {}) {
     preProcessTemplate: String(payload.preProcessTemplate || ''),
     buscaProdutosTemplate: String(payload.buscaProdutosTemplate || ''),
     downloadImagemTemplate: String(payload.downloadImagemTemplate || ''),
+    gerarCheckoutTemplate: String(payload.gerarCheckoutTemplate || ''),
+    transferirHumanoTemplate: String(payload.transferirHumanoTemplate || ''),
     uraTemplate: String(payload.uraTemplate || ''),
     uraAbTemplate: String(payload.uraAbTemplate || ''),
     basedOnBaseVersion: Number(payload.basedOnBaseVersion || 0) || null,
@@ -166,6 +170,8 @@ function buildHasChanges(draft, baseCurrent, packageCurrent) {
       draft.preProcessTemplate !== (packageCurrent?.preProcessTemplate ?? '') ||
       draft.buscaProdutosTemplate !== (packageCurrent?.buscaProdutosTemplate ?? '') ||
       draft.downloadImagemTemplate !== (packageCurrent?.downloadImagemTemplate ?? '') ||
+      draft.gerarCheckoutTemplate !== (packageCurrent?.gerarCheckoutTemplate ?? '') ||
+      draft.transferirHumanoTemplate !== (packageCurrent?.transferirHumanoTemplate ?? '') ||
       draft.uraTemplate !== (packageCurrent?.uraTemplate ?? '') ||
       draft.uraAbTemplate !== (packageCurrent?.uraAbTemplate ?? ''),
   );
@@ -178,6 +184,8 @@ function buildReleasePayloadFromPackage(row) {
     preProcessTemplate: row.preProcessTemplate,
     buscaProdutosTemplate: row.buscaProdutosTemplate,
     downloadImagemTemplate: row.downloadImagemTemplate,
+    gerarCheckoutTemplate: row.gerarCheckoutTemplate,
+    transferirHumanoTemplate: row.transferirHumanoTemplate,
     uraTemplate: row.uraTemplate,
     uraAbTemplate: row.uraAbTemplate,
     isActive: row.isActive,
@@ -216,6 +224,8 @@ function buildPackageReleasePayload(context, componentScope = null) {
     preProcessTemplate: context.packageCurrent?.preProcessTemplate ?? '',
     buscaProdutosTemplate: context.packageCurrent?.buscaProdutosTemplate ?? '',
     downloadImagemTemplate: context.packageCurrent?.downloadImagemTemplate ?? '',
+    gerarCheckoutTemplate: context.packageCurrent?.gerarCheckoutTemplate ?? '',
+    transferirHumanoTemplate: context.packageCurrent?.transferirHumanoTemplate ?? '',
     uraTemplate: context.packageCurrent?.uraTemplate ?? '',
     uraAbTemplate: context.packageCurrent?.uraAbTemplate ?? '',
     isActive: true,
@@ -232,6 +242,8 @@ function buildPackageReleasePayload(context, componentScope = null) {
       preProcessTemplate: context.draft.preProcessTemplate,
       buscaProdutosTemplate: context.draft.buscaProdutosTemplate,
       downloadImagemTemplate: context.draft.downloadImagemTemplate,
+      gerarCheckoutTemplate: context.draft.gerarCheckoutTemplate,
+      transferirHumanoTemplate: context.draft.transferirHumanoTemplate,
       uraTemplate: context.draft.uraTemplate,
       uraAbTemplate: context.draft.uraAbTemplate,
     };

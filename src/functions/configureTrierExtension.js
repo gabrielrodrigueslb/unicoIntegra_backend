@@ -303,7 +303,7 @@ function describeTemplateSource(source) {
 
 async function normalizePortugueseAssetNames(workingDirectory) {
   const publicDirectory = path.join(workingDirectory, 'public');
-  const brokenLogoPath = path.join(publicDirectory, 'logo-extensÃ†o.png');
+  const brokenLogoPath = path.join(publicDirectory, 'logo-extensão.png');
   const normalizedLogoPath = path.join(publicDirectory, 'logo-extensao.png');
 
   if (

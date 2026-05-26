@@ -20,6 +20,8 @@ const TEMPLATE_COMPONENT_COLUMN_MAP = {
   preProcess: 'preProcessTemplate',
   buscaProdutos: 'buscaProdutosTemplate',
   downloadImagem: 'downloadImagemTemplate',
+  gerarCheckout: 'gerarCheckoutTemplate',
+  transferirHumano: 'transferirHumanoTemplate',
   ura: 'uraTemplate',
   uraAb: 'uraAbTemplate',
 };
@@ -69,6 +71,8 @@ function buildTemplateRowPayload(provider, rawTemplates) {
     preProcessTemplate: rawTemplates.preProcess,
     buscaProdutosTemplate: rawTemplates.buscaProdutos,
     downloadImagemTemplate: rawTemplates.downloadImagem,
+    gerarCheckoutTemplate: rawTemplates.gerarCheckout ?? null,
+    transferirHumanoTemplate: rawTemplates.transferirHumano ?? null,
     uraTemplate: rawTemplates.ura,
     uraAbTemplate: rawTemplates.uraAb,
   };
@@ -198,6 +202,8 @@ async function createNextProviderTemplateVersion(provider, nextRow) {
         "preProcessTemplate",
         "buscaProdutosTemplate",
         "downloadImagemTemplate",
+        "gerarCheckoutTemplate",
+        "transferirHumanoTemplate",
         "uraTemplate",
         "uraAbTemplate",
         "componentVersions",
@@ -214,7 +220,9 @@ async function createNextProviderTemplateVersion(provider, nextRow) {
         $7::text,
         $8::text,
         $9::text,
-        $10::jsonb,
+        $10::text,
+        $11::text,
+        $12::jsonb,
         true,
         true
       )
@@ -228,6 +236,8 @@ async function createNextProviderTemplateVersion(provider, nextRow) {
       nextRow.preProcessTemplate,
       nextRow.buscaProdutosTemplate,
       nextRow.downloadImagemTemplate,
+      nextRow.gerarCheckoutTemplate,
+      nextRow.transferirHumanoTemplate,
       nextRow.uraTemplate,
       nextRow.uraAbTemplate,
       JSON.stringify(nextComponentVersions),
@@ -264,12 +274,27 @@ async function createManualProviderTemplateVersion(provider, input = {}) {
     preProcessTemplate: input.preProcessTemplate,
     buscaProdutosTemplate: input.buscaProdutosTemplate,
     downloadImagemTemplate: input.downloadImagemTemplate,
+    gerarCheckoutTemplate: input.gerarCheckoutTemplate ?? null,
+    transferirHumanoTemplate: input.transferirHumanoTemplate ?? null,
     uraTemplate: input.uraTemplate,
     uraAbTemplate: input.uraAbTemplate,
   };
 
+  const requiredComponentKeys = new Set(
+    Object.keys(getManagedAiTemplatePaths(normalizedProvider)),
+  );
+
   for (const [field, value] of Object.entries(nextRow)) {
     if (field === 'provider' || field === 'templateName') continue;
+
+    const componentKey = Object.entries(TEMPLATE_COMPONENT_COLUMN_MAP).find(
+      ([, column]) => column === field,
+    )?.[0];
+
+    if (!componentKey || !requiredComponentKeys.has(componentKey)) {
+      continue;
+    }
+
     if (typeof value !== 'string' || !value.trim()) {
       throw new Error(`${field} e obrigatorio.`);
     }
@@ -314,6 +339,8 @@ function normalizeTemplateRow(row) {
     preProcessTemplate: row.preProcessTemplate,
     buscaProdutosTemplate: row.buscaProdutosTemplate,
     downloadImagemTemplate: row.downloadImagemTemplate,
+    gerarCheckoutTemplate: row.gerarCheckoutTemplate ?? null,
+    transferirHumanoTemplate: row.transferirHumanoTemplate ?? null,
     uraTemplate: row.uraTemplate,
     uraAbTemplate: row.uraAbTemplate,
     componentVersions: parseRowJson(row.componentVersions) || buildInitialComponentVersions(),
@@ -346,6 +373,8 @@ export async function ensureAiProviderTemplatesTableExists() {
           "preProcessTemplate" TEXT NOT NULL,
           "buscaProdutosTemplate" TEXT NOT NULL,
           "downloadImagemTemplate" TEXT NOT NULL,
+          "gerarCheckoutTemplate" TEXT,
+          "transferirHumanoTemplate" TEXT,
           "uraTemplate" TEXT NOT NULL,
           "uraAbTemplate" TEXT NOT NULL,
           "componentVersions" JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -359,6 +388,16 @@ export async function ensureAiProviderTemplatesTableExists() {
       await adminPool.query(`
         ALTER TABLE sistema.ai_provider_templates
         ADD COLUMN IF NOT EXISTS "componentVersions" JSONB NOT NULL DEFAULT '{}'::jsonb;
+      `);
+
+      await adminPool.query(`
+        ALTER TABLE sistema.ai_provider_templates
+        ADD COLUMN IF NOT EXISTS "gerarCheckoutTemplate" TEXT;
+      `);
+
+      await adminPool.query(`
+        ALTER TABLE sistema.ai_provider_templates
+        ADD COLUMN IF NOT EXISTS "transferirHumanoTemplate" TEXT;
       `);
 
       await adminPool.query(`
@@ -648,6 +687,8 @@ function buildFallbackTemplateRow(provider) {
     preProcessTemplate: null,
     buscaProdutosTemplate: null,
     downloadImagemTemplate: null,
+    gerarCheckoutTemplate: null,
+    transferirHumanoTemplate: null,
     uraTemplate: null,
     uraAbTemplate: null,
     componentVersions: buildInitialComponentVersions(),

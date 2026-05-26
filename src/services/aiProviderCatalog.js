@@ -2,6 +2,8 @@ export const MANAGED_AI_COMPONENT_KEYS = [
   'assistant',
   'downloadImagem',
   'buscaProdutos',
+  'gerarCheckout',
+  'transferirHumano',
   'ura',
   'uraAb',
   'preProcess',
@@ -130,6 +132,110 @@ const MANAGED_AI_PROVIDER_DEFINITIONS = {
           record.configSnapshot?.nome_cliente &&
           record.configSnapshot?.apiKey &&
           record.configSnapshot?.porta_cliente,
+      );
+    },
+  },
+  vtex: {
+    provider: 'vtex',
+    displayName: 'IA - VTEX',
+    templateName: 'IA - VTEX Integrada',
+    fallbackVersion: 1,
+    templatePaths: {
+      assistant: 'ia/vtex/vtex_ia_config.json',
+      downloadImagem: 'ia/vtex/vtex_download_imagem.json',
+      buscaProdutos: 'ia/vtex/vtex_busca_produtos.json',
+      gerarCheckout: 'ia/vtex/vtex_gerar_checkout.json',
+      transferirHumano: 'ia/vtex/vtex_transferir_para_humano.json',
+      ura: 'ia/vtex/vtex_ura.json',
+      uraAb: 'ia/vtex/vtex_ab.json',
+      preProcess: 'ia/vtex/vtex_pre_processamento.json',
+    },
+    installOrder: [
+      'downloadImagem',
+      'buscaProdutos',
+      'gerarCheckout',
+      'transferirHumano',
+      'ura',
+      'uraAb',
+      'preProcess',
+    ],
+    updateOrder: [
+      'downloadImagem',
+      'buscaProdutos',
+      'gerarCheckout',
+      'transferirHumano',
+      'preProcess',
+    ],
+    createConfigSnapshot(input = {}) {
+      const quantidadeDeProdutos = Number(
+        input.quantidade_de_produtos ?? input.quantidadeDeProdutos ?? 3,
+      );
+
+      return {
+        assistantDisplayName: input.name ?? '',
+        nome_cliente: input.nome_cliente ?? input.nomeCliente ?? input.clientName ?? '',
+        apiKey: input.apiKey ?? '',
+        url_vtex_variable:
+          input.url_vtex_variable ?? input.url_vtex_var ?? input.urlVtex ?? '',
+        vtex_app_key_variable:
+          input.vtex_app_key_variable ?? input.vtex_app_key ?? input.vtexAppKey ?? '',
+        vtex_app_token_variable:
+          input.vtex_app_token_variable ??
+          input.vtex_app_token ??
+          input.vtexAppToken ??
+          '',
+        quantidade_de_produtos:
+          Number.isFinite(quantidadeDeProdutos) && quantidadeDeProdutos > 0
+            ? Math.min(7, quantidadeDeProdutos)
+            : 3,
+      };
+    },
+    buildTemplateVariables({ instance, assistantId, config = {}, ids = {} }) {
+      const quantidadeDeProdutos = Number(config.quantidade_de_produtos);
+
+      return {
+        id: assistantId,
+        ia_id: assistantId,
+        signaturename: config.assistantDisplayName || 'LeIA',
+        nome_cliente: config.nome_cliente || '',
+        nome_cliente_var: config.nome_cliente || '',
+        api_key: config.apiKey || '',
+        url_cliente: instance,
+        url_vtex_variable: config.url_vtex_variable || config.url_vtex_var || '',
+        vtex_app_key_variable:
+          config.vtex_app_key_variable || config.vtex_app_key || '',
+        vtex_app_token_variable:
+          config.vtex_app_token_variable || config.vtex_app_token || '',
+        quantidade_de_produtos:
+          Number.isFinite(quantidadeDeProdutos) && quantidadeDeProdutos > 0
+            ? Math.min(7, quantidadeDeProdutos)
+            : 3,
+        preProcessId: ids.preProcessId || '',
+        BuscaItensId: ids.buscaProdutosId || '',
+        download_img_id: ids.downloadImagemId || '',
+        gerar_checkout_id: ids.gerarCheckoutId || '',
+        transferir_para_humano_id: ids.transferirHumanoId || '',
+        ura_ia_id: ids.uraIaId || '',
+      };
+    },
+    canUpdateInstallation(record = {}) {
+      return Boolean(
+        record.assistantId &&
+          record.preProcessId &&
+          record.buscaProdutosId &&
+          record.downloadImagemId &&
+          record.gerarCheckoutId &&
+          record.transferirHumanoId &&
+          record.uraIaId &&
+          record.uraAbId &&
+          record.configSnapshot?.nome_cliente &&
+          record.configSnapshot?.apiKey &&
+          (record.configSnapshot?.url_vtex_variable ||
+            record.configSnapshot?.url_vtex_var) &&
+          (record.configSnapshot?.vtex_app_key_variable ||
+            record.configSnapshot?.vtex_app_key) &&
+          (record.configSnapshot?.vtex_app_token_variable ||
+            record.configSnapshot?.vtex_app_token),
       );
     },
   },
@@ -343,6 +449,10 @@ export function inferManagedAiProviderFromPayload(payload = {}) {
     return 'trier';
   }
 
+  if (name.includes('vtex')) {
+    return 'vtex';
+  }
+
   if (name.includes('vannon')) {
     return 'vannon';
   }
@@ -357,6 +467,10 @@ export function inferManagedAiProviderFromPayload(payload = {}) {
 
   if (description.includes('vannon')) {
     return 'vannon';
+  }
+
+  if (description.includes('vtex')) {
+    return 'vtex';
   }
 
   return null;

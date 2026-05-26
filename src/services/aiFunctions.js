@@ -9,6 +9,8 @@ import { loadAiProviderTemplateComponent } from './aiProviderTemplate.services.j
 const COMPONENT_ID_FIELD_MAP = {
   downloadImagem: 'downloadImagemId',
   buscaProdutos: 'buscaProdutosId',
+  gerarCheckout: 'gerarCheckoutId',
+  transferirHumano: 'transferirHumanoId',
   ura: 'uraIaId',
   uraAb: 'uraAbId',
   preProcess: 'preProcessId',
@@ -17,6 +19,8 @@ const COMPONENT_ID_FIELD_MAP = {
 const COMPONENT_LOG_LABEL_MAP = {
   downloadImagem: 'Download Image',
   buscaProdutos: 'Busca de produtos',
+  gerarCheckout: 'Gerar checkout',
+  transferirHumano: 'Transferir para humano',
   ura: 'URA IA',
   uraAb: 'URA IA - AB',
   preProcess: 'Pre processamento',
@@ -68,6 +72,8 @@ async function installManagedProviderTemplates({
   const installedIds = {
     downloadImagemId: null,
     buscaProdutosId: null,
+    gerarCheckoutId: null,
+    transferirHumanoId: null,
     uraIaId: null,
     uraAbId: null,
     preProcessId: null,
@@ -136,6 +142,29 @@ export async function trierFunctions({
   } catch (error) {
     console.error(
       'Erro critico em trierFunctions:',
+      error.response?.data || error.message,
+    );
+    throw error;
+  }
+}
+
+export async function vtexFunctions({
+  instance,
+  token,
+  iaId,
+  configSnapshot,
+}) {
+  try {
+    return await installManagedProviderTemplates({
+      provider: 'vtex',
+      instance,
+      token,
+      assistantId: iaId,
+      configSnapshot,
+    });
+  } catch (error) {
+    console.error(
+      'Erro critico em vtexFunctions:',
       error.response?.data || error.message,
     );
     throw error;

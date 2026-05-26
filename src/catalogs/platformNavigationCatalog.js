@@ -98,7 +98,7 @@ export const platformNavigationCatalog = [
     summary:
       'Catalogo de modelos de IA com formulario para criacao e configuracao.',
     capabilities: [
-      'criar IA Alpha 7, Trier, Vannon, Vetor e Atendimento',
+      'criar IA Alpha 7, Trier, VTEX, Vannon, Vetor e Atendimento',
       'preencher configuracoes especificas por template',
     ],
   },
@@ -177,6 +177,16 @@ export const platformNavigationCatalog = [
       'Documentacao especifica da IA Trier.',
     capabilities: [
       'consultar configuracao da IA Trier',
+    ],
+  },
+  {
+    key: 'docs-ias-vtex',
+    name: 'Docs IA VTEX',
+    path: '/main/docs/ias/vtex',
+    summary:
+      'Documentacao especifica da IA VTEX.',
+    capabilities: [
+      'consultar configuracao da IA VTEX',
     ],
   },
   {
