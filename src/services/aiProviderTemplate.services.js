@@ -445,34 +445,9 @@ export async function ensureAiProviderTemplatesTableExists() {
 }
 
 export async function syncCurrentAiProviderTemplatesToDb() {
-  await ensureAiProviderTemplatesTableExists();
-  if (!aiProviderTemplatesAvailable || !aiProviderTemplatesWriteAvailable) {
-    return MANAGED_AI_PROVIDERS.map((provider) => ({
-      provider,
-      templateName: getManagedAiProviderDefinition(provider)?.templateName || provider,
-      version: getManagedAiProviderFallbackVersion(provider),
-      changed: false,
-      isCurrent: true,
-      source: 'file-fallback',
-    }));
-  }
-
-  const results = [];
-  for (const provider of MANAGED_AI_PROVIDERS) {
-    const rawTemplates = await loadProviderRawTemplates(provider);
-    const rowPayload = buildTemplateRowPayload(provider, rawTemplates);
-    const result = await createNextProviderTemplateVersion(provider, rowPayload);
-
-    results.push({
-      provider,
-      templateName: rowPayload.templateName,
-      version: result.row?.version ?? null,
-      changed: result.changed,
-      isCurrent: result.row?.isCurrent ?? false,
-    });
-  }
-
-  return results;
+  throw new Error(
+    'Sincronizacao por arquivos locais foi desativada. O banco e a unica fonte de verdade para templates por provider.',
+  );
 }
 
 export async function ensureCurrentAiProviderTemplatesSeeded() {
@@ -492,10 +467,7 @@ export async function ensureCurrentAiProviderTemplatesSeeded() {
   aiProviderTemplatesSeedPromise = (async () => {
     await ensureAiProviderTemplatesTableExists();
     if (!aiProviderTemplatesAvailable) return;
-    const hasRows = await hasAnyAiProviderTemplateRows();
-    if (!hasRows) {
-      await syncCurrentAiProviderTemplatesToDb();
-    }
+    await hasAnyAiProviderTemplateRows();
   })();
 
   try {

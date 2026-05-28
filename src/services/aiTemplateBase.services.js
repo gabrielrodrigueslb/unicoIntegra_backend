@@ -407,37 +407,9 @@ async function createManualTemplateVersion({
 }
 
 export async function syncCurrentAiTemplatesToDb() {
-  await ensureAiTemplateBasesTableExists();
-  if (!aiTemplateBasesWriteAvailable) {
-    return Promise.all(
-      AI_TEMPLATE_DEFINITIONS.map(async (definition) => ({
-        templateKey: definition.templateKey,
-        templateName: definition.templateName,
-        sourcePath: definition.sourcePath,
-        version: 1,
-        changed: false,
-        isCurrent: true,
-        source: 'file-fallback',
-      })),
-    );
-  }
-
-  const results = [];
-
-  for (const definition of AI_TEMPLATE_DEFINITIONS) {
-    const templateContent = await readTemplateFileRaw(definition.sourcePath);
-    const result = await createNextTemplateVersion(definition, templateContent);
-    results.push({
-      templateKey: definition.templateKey,
-      templateName: definition.templateName,
-      sourcePath: definition.sourcePath,
-      version: result.row.version,
-      changed: result.changed,
-      isCurrent: result.row.isCurrent,
-    });
-  }
-
-  return results;
+  throw new Error(
+    'Sincronizacao por arquivos locais foi desativada. O banco e a unica fonte de verdade para templates base.',
+  );
 }
 
 export async function ensureCurrentAiTemplatesSeeded() {
@@ -448,10 +420,7 @@ export async function ensureCurrentAiTemplatesSeeded() {
 
   aiTemplateSeedPromise = (async () => {
     await ensureAiTemplateBasesTableExists();
-    const hasRows = await hasAnyAiTemplateBaseRows();
-    if (!hasRows) {
-      await syncCurrentAiTemplatesToDb();
-    }
+    await hasAnyAiTemplateBaseRows();
   })();
 
   try {

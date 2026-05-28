@@ -17,7 +17,6 @@ import {
 import {
   getCurrentAiProviderTemplatePackageWithOptions,
   loadAiProviderTemplateComponent,
-  syncCurrentAiProviderTemplatesToDb,
 } from './aiProviderTemplate.services.js';
 import {
   getAiClientInstallationById,
@@ -172,8 +171,6 @@ async function createManagedIntegratedAi({ provider, auth, configInput }) {
   if (!installArtifacts) {
     throw new Error(`Provider de IA nao suportado: ${provider}`);
   }
-
-  await syncCurrentAiProviderTemplatesToDb();
 
   const currentPackage = await getCurrentAiProviderTemplatePackageWithOptions(provider, {
     requireDatabase: true,
@@ -625,8 +622,6 @@ export async function updateManagedAiInstallation({
       'Esta instalacao nao possui dados suficientes para atualizar. Complete os IDs e a configuracao primeiro.',
     );
   }
-
-  await syncCurrentAiProviderTemplatesToDb();
 
   const currentPackage = await getCurrentAiProviderTemplatePackageWithOptions(
     installation.provider,
@@ -1081,8 +1076,6 @@ export async function reconfigureManagedAiInstallation({
     password,
     code2fa,
   );
-
-  await syncCurrentAiProviderTemplatesToDb();
 
   const currentPackage = await getCurrentAiProviderTemplatePackageWithOptions(
     updatedInstallation.provider,

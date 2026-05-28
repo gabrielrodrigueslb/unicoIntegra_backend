@@ -14,12 +14,10 @@ import {
 import {
   listAiTemplateBases,
   saveAiTemplateBase,
-  syncCurrentAiTemplatesToDb,
 } from '../services/aiTemplateBase.services.js';
 import {
   listAiProviderTemplatePackages,
   saveAiProviderTemplatePackage,
-  syncCurrentAiProviderTemplatesToDb,
 } from '../services/aiProviderTemplate.services.js';
 import {
   discardAiTemplateWorkspaceDraft,
@@ -911,26 +909,10 @@ export async function saveAiProviderTemplateController(req, res) {
 }
 
 export async function syncAiTemplatesController(req, res) {
-  try {
-    const [legacyTemplates, providerTemplates] = await Promise.all([
-      syncCurrentAiTemplatesToDb(),
-      syncCurrentAiProviderTemplatesToDb(),
-    ]);
-
-    return res.status(200).json({
-      message: 'Templates base de IA sincronizados com sucesso.',
-      data: {
-        legacyTemplates,
-        providerTemplates,
-      },
-    });
-  } catch (error) {
-    console.error('Erro ao sincronizar templates base de IA:', error);
-    return res.status(500).json({
-      message: 'Ocorreu um erro ao sincronizar templates base de IA.',
-      error: error.message,
-    });
-  }
+  return res.status(410).json({
+    message:
+      'A sincronizacao por arquivos locais foi desativada. O banco e a unica fonte de verdade para templates.',
+  });
 }
 
 export async function listAiTemplateWorkspacesController(req, res) {
