@@ -1,6 +1,6 @@
 {
   "name": "Trier Sistemas",
-  "description": "Versão de teste para extensão de Integrações",
+  "description": "Versao de teste para extensao de Integracoes",
   "version": "1.0",
   "manifest_version": 3,
   "background": {
@@ -12,9 +12,9 @@
     "default_title": "Extension"
   },
   "icons": {
-    "16": "logo-extensão.png",
-    "48": "logo-extensão.png",
-    "128": "logo-extensão.png"
+    "16": "logo-extensao.png",
+    "48": "logo-extensao.png",
+    "128": "logo-extensao.png"
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self';"

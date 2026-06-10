@@ -314,6 +314,41 @@ async function normalizePortugueseAssetNames(workingDirectory) {
   }
 }
 
+async function normalizeTrierExtensionAssets(workingDirectory) {
+  const publicDirectory = path.join(workingDirectory, 'public');
+  const logoCandidates = [
+    path.join(publicDirectory, 'logo-extensÃ£o.png'),
+    path.join(publicDirectory, 'logo-extensão.png'),
+  ];
+  const normalizedLogoPath = path.join(publicDirectory, 'logo-extensao.png');
+  const manifestPath = path.join(publicDirectory, 'manifest.json');
+
+  for (const candidatePath of logoCandidates) {
+    if (
+      (await pathExists(candidatePath)) &&
+      !(await pathExists(normalizedLogoPath))
+    ) {
+      await fsExtra.move(candidatePath, normalizedLogoPath);
+      break;
+    }
+  }
+
+  if (await pathExists(manifestPath)) {
+    const manifestContent = await fs.readFile(manifestPath, 'utf8');
+    const normalizedManifestContent = manifestContent
+      .replaceAll('logo-extensÃ£o.png', 'logo-extensao.png')
+      .replaceAll('logo-extensão.png', 'logo-extensao.png')
+      .replaceAll(
+        'VersÃ£o de teste para extensÃ£o de IntegraÃ§Ãµes',
+        'Versao de teste para extensao de Integracoes',
+      );
+
+    if (normalizedManifestContent !== manifestContent) {
+      await fs.writeFile(manifestPath, normalizedManifestContent, 'utf8');
+    }
+  }
+}
+
 async function createZipFromDirectory(sourceDirectory, outputZipPath) {
   await fsExtra.ensureDir(path.dirname(outputZipPath));
 
@@ -488,7 +523,7 @@ export async function configurarExtensaoTrier(args = {}) {
     await prepareTemplateWorkspace(source, workingDirectory, 'Trier');
     traceSteps.push('Codigo-fonte da extensao preparado para build.');
 
-    await normalizePortugueseAssetNames(workingDirectory);
+    await normalizeTrierExtensionAssets(workingDirectory);
     traceSteps.push('Nomes de arquivos normalizados.');
 
     const distDirectory = await buildExtensionPackage({
@@ -596,7 +631,7 @@ export async function configurarExtensaoInovaFarma(args = {}) {
     await prepareTemplateWorkspace(source, workingDirectory, 'Inova Farma');
     traceSteps.push('Codigo-fonte da extensao preparado para build.');
 
-    await normalizePortugueseAssetNames(workingDirectory);
+    await normalizeTrierExtensionAssets(workingDirectory);
     traceSteps.push('Nomes de arquivos normalizados.');
 
     const distDirectory = await buildExtensionPackage({
