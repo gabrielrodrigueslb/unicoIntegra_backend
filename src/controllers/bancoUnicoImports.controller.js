@@ -2,6 +2,7 @@ import {
   cancelBancoUnicoImportJob,
   createBancoUnicoImportJob,
   deleteBancoUnicoImportJob,
+  getBancoUnicoImportItemFacets,
   getBancoUnicoImportJob,
   listBancoUnicoImportEvents,
   listBancoUnicoImportItems,
@@ -72,6 +73,18 @@ export async function listBancoUnicoImportItemsController(req, res) {
     console.error(error);
     return res.status(resolveStatusCode(error, 500)).json({
       error: error.message || 'Erro ao listar itens da importacao.',
+    });
+  }
+}
+
+export async function getBancoUnicoImportItemFacetsController(req, res) {
+  try {
+    const values = await getBancoUnicoImportItemFacets(req.params.id, req.query.field, req.query || {});
+    return res.json({ values });
+  } catch (error) {
+    console.error(error);
+    return res.status(resolveStatusCode(error, 400)).json({
+      error: error.message || 'Erro ao carregar valores do filtro.',
     });
   }
 }

@@ -3,6 +3,7 @@ import {
   cancelBancoUnicoImportJobController,
   createBancoUnicoImportJobController,
   deleteBancoUnicoImportJobController,
+  getBancoUnicoImportItemFacetsController,
   getBancoUnicoImportJobController,
   listBancoUnicoImportEventsController,
   listBancoUnicoImportItemsController,
@@ -19,6 +20,7 @@ router.post('/', createBancoUnicoImportJobController);
 router.get('/:id', getBancoUnicoImportJobController);
 router.get('/:id/stream', streamBancoUnicoImportController);
 router.get('/:id/items', listBancoUnicoImportItemsController);
+router.get('/:id/items/facets', getBancoUnicoImportItemFacetsController);
 router.get('/:id/events', listBancoUnicoImportEventsController);
 router.post('/:id/pause', pauseBancoUnicoImportJobController);
 router.post('/:id/resume', resumeBancoUnicoImportJobController);

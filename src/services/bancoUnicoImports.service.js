@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../prisma/PrismaClient.js';
 import { createLogService } from './logs.services.js';
 import { getClientWithCredential } from './clients.service.js';
@@ -807,7 +808,10 @@ async function loadSourceProducts(options, jobId = null) {
 // avoids both the round-trip stall AND the 5s default timeout an interactive
 // prisma.$transaction hits once a chunk gets large (saw this fail in
 // production as "rollback cannot be executed on an expired transaction").
-const PERSIST_PARALLEL_CHUNK = 50;
+// Keep this at or below the pg pool's `max` (see PrismaClient.js) — a chunk
+// larger than the pool queues on connection acquisition and can itself time
+// out ("Operation has timed out"), which is what pushing this to 50 caused.
+const PERSIST_PARALLEL_CHUNK = 20;
 
 async function persistItemBatch(records) {
   if (!records.length) {
@@ -1560,15 +1564,30 @@ export async function subscribeBancoUnicoImportStream(jobId, res) {
   res.on('finish', cleanup);
 }
 
+function toValueArray(value) {
+  if (value === undefined || value === null || value === '') return [];
+  const list = Array.isArray(value) ? value : [value];
+  return list.map((entry) => String(entry).trim()).filter(Boolean);
+}
+
 export async function listBancoUnicoImportItems(jobId, query = {}) {
   const pageNumber = Math.max(1, Number(query.page) || 1);
   const limitNumber = Math.max(1, Math.min(100, Number(query.limit) || 20));
   const skip = (pageNumber - 1) * limitNumber;
   const normalizedJobId = Number(jobId);
 
+  const statusValues = toValueArray(query.status);
+  const eanValues = toValueArray(query.ean);
+  const nameValues = toValueArray(query.name);
+  const manufacturerValues = toValueArray(query.manufacturer);
+  const activeIngredientValues = toValueArray(query.activeIngredient);
+  const hasErrorValues = toValueArray(query.hasError);
+  const wantsErrors = hasErrorValues.includes('yes');
+  const wantsNoErrors = hasErrorValues.includes('no');
+
   const where = {
     jobId: normalizedJobId,
-    ...(query.status ? { status: String(query.status) } : {}),
+    ...(statusValues.length ? { status: { in: statusValues } } : {}),
     ...(query.search
       ? {
           OR: [
@@ -1594,23 +1613,20 @@ export async function listBancoUnicoImportItems(jobId, query = {}) {
           ],
         }
       : {}),
-    ...(query.ean ? { ean: { contains: String(query.ean), mode: 'insensitive' } } : {}),
-    ...(query.name
+    ...(eanValues.length ? { ean: { in: eanValues } } : {}),
+    ...(nameValues.length
       ? {
           OR: [
-            { nameOriginal: { contains: String(query.name), mode: 'insensitive' } },
-            { nameNormalized: { contains: String(query.name), mode: 'insensitive' } },
+            { nameNormalized: { in: nameValues } },
+            { nameOriginal: { in: nameValues } },
           ],
         }
       : {}),
-    ...(query.manufacturer
-      ? { manufacturer: { contains: String(query.manufacturer), mode: 'insensitive' } }
-      : {}),
-    ...(query.activeIngredient
-      ? { activeIngredient: { contains: String(query.activeIngredient), mode: 'insensitive' } }
-      : {}),
-    ...(query.hasError === 'yes' ? { errorMessage: { not: null } } : {}),
-    ...(query.hasError === 'no' ? { errorMessage: null } : {}),
+    ...(manufacturerValues.length ? { manufacturer: { in: manufacturerValues } } : {}),
+    ...(activeIngredientValues.length ? { activeIngredient: { in: activeIngredientValues } } : {}),
+    // both selected (or neither) means no filter on error state
+    ...(wantsErrors && !wantsNoErrors ? { errorMessage: { not: null } } : {}),
+    ...(wantsNoErrors && !wantsErrors ? { errorMessage: null } : {}),
   };
 
   const [data, totalItems] = await Promise.all([
@@ -1632,6 +1648,37 @@ export async function listBancoUnicoImportItems(jobId, query = {}) {
       totalPages: Math.max(1, Math.ceil(totalItems / limitNumber)),
     },
   };
+}
+
+const ITEM_FACET_EXPR = {
+  ean: Prisma.raw('"ean"'),
+  name: Prisma.raw('COALESCE("nameNormalized", "nameOriginal")'),
+  manufacturer: Prisma.raw('"manufacturer"'),
+  activeIngredient: Prisma.raw('"activeIngredient"'),
+};
+
+export async function getBancoUnicoImportItemFacets(jobId, field, query = {}) {
+  const expr = ITEM_FACET_EXPR[field];
+  if (!expr) {
+    throw new Error('Campo de filtro invalido.');
+  }
+
+  const normalizedJobId = Number(jobId);
+  const search = String(query.search || '').trim();
+  const limitNumber = Math.max(1, Math.min(50, Number(query.limit) || 5));
+
+  const rows = await prisma.$queryRaw`
+    SELECT DISTINCT ${expr} AS value
+    FROM "sistema"."banco_unico_import_items"
+    WHERE "jobId" = ${normalizedJobId}
+      AND ${expr} IS NOT NULL
+      AND ${expr} <> ''
+      ${search ? Prisma.sql`AND ${expr} ILIKE ${`%${search}%`}` : Prisma.empty}
+    ORDER BY ${expr} ASC
+    LIMIT ${limitNumber}
+  `;
+
+  return rows.map((row) => row.value);
 }
 
 export async function listBancoUnicoImportEvents(jobId, query = {}) {
