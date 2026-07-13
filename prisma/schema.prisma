@@ -18,19 +18,19 @@ model AiVersion {
 }
 
 model AiTemplateBase {
-  id             Int      @id @default(autoincrement())
-  templateKey    String   @db.VarChar(100)
-  templateName   String   @db.VarChar(255)
-  version        Int
+  id              Int      @id @default(autoincrement())
+  templateKey     String   @db.VarChar(100)
+  templateName    String   @db.VarChar(255)
+  version         Int
   templateContent String
-  contentType    String   @default("json-template") @db.VarChar(50)
-  sourcePath     String?  @db.VarChar(255)
-  immutablePaths Json?
-  ivrBindings    Json?
-  isCurrent      Boolean  @default(true)
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now()) @db.Timestamp(6)
-  updatedAt      DateTime @updatedAt @db.Timestamp(6)
+  contentType     String   @default("json-template") @db.VarChar(50)
+  sourcePath      String?  @db.VarChar(255)
+  immutablePaths  Json?
+  ivrBindings     Json?
+  isCurrent       Boolean  @default(true)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now()) @db.Timestamp(6)
+  updatedAt       DateTime @updatedAt @db.Timestamp(6)
 
   @@map("ai_template_bases")
   @@schema("sistema")
@@ -65,24 +65,24 @@ model AiProviderTemplate {
 }
 
 model AiClientInstallation {
-  id              Int      @id @default(autoincrement())
-  instance        String   @db.VarChar(255)
-  provider        String   @db.VarChar(50)
-  assistantId     String?  @db.VarChar(100)
-  assistantName   String?  @db.VarChar(255)
-  installedVersion Int?
-  source          String   @default("managed") @db.VarChar(50)
-  configSnapshot  Json?
+  id                         Int      @id @default(autoincrement())
+  instance                   String   @db.VarChar(255)
+  provider                   String   @db.VarChar(50)
+  assistantId                String?  @db.VarChar(100)
+  assistantName              String?  @db.VarChar(255)
+  installedVersion           Int?
+  source                     String   @default("managed") @db.VarChar(50)
+  configSnapshot             Json?
   installedComponentVersions Json?
-  preProcessId    String?  @db.VarChar(100)
-  buscaProdutosId String?  @db.VarChar(100)
-  downloadImagemId String? @db.VarChar(100)
-  uraIaId         String?  @db.VarChar(100)
-  uraAbId         String?  @db.VarChar(100)
-  lastSyncStatus  String   @default("installed") @db.VarChar(50)
-  lastSyncError   String?
-  createdAt       DateTime @default(now()) @db.Timestamp(6)
-  updatedAt       DateTime @updatedAt @db.Timestamp(6)
+  preProcessId               String?  @db.VarChar(100)
+  buscaProdutosId            String?  @db.VarChar(100)
+  downloadImagemId           String?  @db.VarChar(100)
+  uraIaId                    String?  @db.VarChar(100)
+  uraAbId                    String?  @db.VarChar(100)
+  lastSyncStatus             String   @default("installed") @db.VarChar(50)
+  lastSyncError              String?
+  createdAt                  DateTime @default(now()) @db.Timestamp(6)
+  updatedAt                  DateTime @updatedAt @db.Timestamp(6)
 
   @@map("ai_client_installations")
   @@schema("sistema")
@@ -103,6 +103,7 @@ model news {
   description String
   type        String    @db.VarChar(50)
   created_at  DateTime? @default(now()) @db.Timestamp(6)
+
   @@schema("sistema")
 }
 
@@ -116,6 +117,121 @@ model SystemLog {
   @@map("system_logs")
   @@schema("sistema")
 
-  @@index([createdAt]) // Acelera muito o filtro por data e ordenação
-  @@index([userName])  // Acelera busca por nome
+  @@index([createdAt])
+  @@index([userName])
+}
+
+model Client {
+  id              Int                    @id @default(autoincrement())
+  name            String                 @unique @db.VarChar(255)
+  businessUnit    String?                @db.VarChar(255)
+  cnpj            String?                @db.VarChar(20)
+  clientInstance  String?                @db.VarChar(255)
+  provider        String                 @db.VarChar(30)
+  instance        String
+  credential      String?
+  alpha7Port      Int?
+  alpha7Database  String?                @db.VarChar(255)
+  alpha7User      String?                @db.VarChar(255)
+  alpha7Schema    String?                @default("public") @db.VarChar(100)
+  createdAt       DateTime               @default(now()) @db.Timestamp(6)
+  updatedAt       DateTime               @updatedAt @db.Timestamp(6)
+  importJobs      BancoUnicoImportJob[]
+
+  @@map("clients")
+  @@schema("sistema")
+
+  @@index([provider])
+}
+
+model BancoUnicoImportJob {
+  id                Int                    @id @default(autoincrement())
+  clientId          Int?
+  client            Client?                @relation(fields: [clientId], references: [id])
+  clientName        String                 @db.VarChar(255)
+  sourceType        String                 @db.VarChar(30)
+  sourceLabel       String?
+  status            String                 @default("pending") @db.VarChar(30)
+  mode              String                 @default("publish") @db.VarChar(30)
+  requestedBy       String                 @db.VarChar(255)
+  currentStage      String?                @db.VarChar(100)
+  currentMessage    String?
+  progressCurrent   Int                    @default(0)
+  progressTotal     Int                    @default(0)
+  progressPercent   Float                  @default(0)
+  totalCatalogValid Int                    @default(0)
+  totalInvalidEans  Int                    @default(0)
+  totalSampled      Int                    @default(0)
+  totalSelected     Int                    @default(0)
+  totalExisting     Int                    @default(0)
+  totalPrepared     Int                    @default(0)
+  totalSkipped      Int                    @default(0)
+  totalErrors       Int                    @default(0)
+  totalPublished    Int                    @default(0)
+  options           Json?
+  summary           Json?
+  startedAt         DateTime?              @db.Timestamp(6)
+  finishedAt        DateTime?              @db.Timestamp(6)
+  createdAt         DateTime               @default(now()) @db.Timestamp(6)
+  updatedAt         DateTime               @updatedAt @db.Timestamp(6)
+  items             BancoUnicoImportItem[]
+  events            BancoUnicoImportEvent[]
+
+  @@map("banco_unico_import_jobs")
+  @@schema("sistema")
+
+  @@index([clientName])
+  @@index([clientId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model BancoUnicoImportItem {
+  id               Int                 @id @default(autoincrement())
+  jobId            Int
+  externalKey      String              @unique @db.VarChar(255)
+  sourceProductId  Int?
+  ean              String?             @db.VarChar(20)
+  nameOriginal     String?
+  nameNormalized   String?
+  manufacturer     String?
+  activeIngredient String?
+  status           String              @db.VarChar(40)
+  skippedReason    String?             @db.VarChar(100)
+  errorStage       String?             @db.VarChar(100)
+  errorMessage     String?
+  confidence       String?             @db.VarChar(20)
+  needsReview      Boolean             @default(false)
+  taxonomy         Json?
+  metadata         Json?
+  payload          Json?
+  sourcePayload    Json?
+  publishedAt      DateTime?           @db.Timestamp(6)
+  createdAt        DateTime            @default(now()) @db.Timestamp(6)
+  updatedAt        DateTime            @updatedAt @db.Timestamp(6)
+  job              BancoUnicoImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("banco_unico_import_items")
+  @@schema("sistema")
+
+  @@index([jobId])
+  @@index([jobId, status])
+  @@index([ean])
+  @@index([createdAt])
+}
+
+model BancoUnicoImportEvent {
+  id        Int                 @id @default(autoincrement())
+  jobId     Int
+  level     String              @default("info") @db.VarChar(20)
+  message   String
+  data      Json?
+  createdAt DateTime            @default(now()) @db.Timestamp(6)
+  job       BancoUnicoImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("banco_unico_import_events")
+  @@schema("sistema")
+
+  @@index([jobId, id])
+  @@index([createdAt])
 }

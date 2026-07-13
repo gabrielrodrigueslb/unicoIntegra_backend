@@ -1,6 +1,8 @@
 import {
   createAiAlpha,
+  createAiAlpha2,
   createAiTrier,
+  createAiTrier2,
   createAiVtex,
   createAiVannon,
   createAiVetor,
@@ -913,6 +915,109 @@ export async function syncAiTemplatesController(req, res) {
     message:
       'A sincronizacao por arquivos locais foi desativada. O banco e a unica fonte de verdade para templates.',
   });
+}
+
+export async function createAiTrier2Controller(req, res) {
+  try {
+    const { instance, username, password, name, nome_cliente, nomeCliente, clientName, apiKey, trierToken, trier_token, quantidade_de_produtos, quantidadeDeProdutos, code, requestedBy } = req.body;
+    const payload = {
+      instance,
+      username,
+      password,
+      code2fa: code,
+      name,
+      nome_cliente: nome_cliente || nomeCliente || clientName,
+      apiKey,
+      trierToken: trierToken || trier_token,
+      quantidade_de_produtos: quantidade_de_produtos ?? quantidadeDeProdutos ?? 3,
+    };
+    for (const [field, value] of Object.entries({ instance: payload.instance, name: payload.name, nome_cliente: payload.nome_cliente, apiKey: payload.apiKey, trierToken: payload.trierToken })) {
+      if (!value) return res.status(400).json({ message: `O campo "${field}" e obrigatorio` });
+    }
+    const quantidade = Number(payload.quantidade_de_produtos);
+    if (!Number.isFinite(quantidade) || quantidade < 1 || quantidade > 7) {
+      return res.status(400).json({ message: 'O campo "quantidade_de_produtos" deve estar entre 1 e 7.' });
+    }
+    if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) return;
+    const response = await createAiTrier2(payload);
+    await createLogService(requestedBy || username || 'Sistema', `Criou a IA Trier 2.0 - ${name}`, instance);
+    return res.status(200).json(response);
+  } catch (error) {
+    const details = toReadableError(error);
+    return res.status(500).json({ message: `Ocorreu um erro ao criar a IA Trier 2.0. ${details}`, error: details });
+  }
+}
+
+export async function createAiAlpha2Controller(req, res) {
+  try {
+    const {
+      instance,
+      username,
+      password,
+      name,
+      nome_cliente,
+      nomeCliente,
+      clientName,
+      unidade_negocio,
+      unidadeNegocio,
+      apiKey,
+      alphaToken,
+      alpha_token,
+      quantidade_de_produtos,
+      quantidadeDeProdutos,
+      code,
+      requestedBy,
+    } = req.body;
+
+    const payload = {
+      instance,
+      username,
+      password,
+      code2fa: code,
+      name,
+      nome_cliente: nome_cliente || nomeCliente || clientName,
+      unidade_negocio: unidade_negocio || unidadeNegocio,
+      apiKey,
+      alphaToken: alphaToken || alpha_token,
+      quantidade_de_produtos: quantidade_de_produtos ?? quantidadeDeProdutos ?? 3,
+    };
+    const quantidade = Number(payload.quantidade_de_produtos);
+
+    for (const [field, value] of Object.entries({
+      instance: payload.instance,
+      name: payload.name,
+      nome_cliente: payload.nome_cliente,
+      unidade_negocio: payload.unidade_negocio,
+      apiKey: payload.apiKey,
+      alphaToken: payload.alphaToken,
+    })) {
+      if (!value) {
+        return res.status(400).json({ message: `O campo "${field}" e obrigatorio` });
+      }
+    }
+    if (!Number.isFinite(quantidade) || quantidade < 1 || quantidade > 7) {
+      return res.status(400).json({
+        message: 'O campo "quantidade_de_produtos" deve estar entre 1 e 7.',
+      });
+    }
+    if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
+      return;
+    }
+
+    const aiResponse = await createAiAlpha2(payload);
+    await createLogService(
+      requestedBy || username || 'Sistema',
+      `Criou a IA Alpha 2.0 - ${name}`,
+      instance,
+    );
+    return res.status(200).json(aiResponse);
+  } catch (error) {
+    const details = toReadableError(error);
+    return res.status(500).json({
+      message: `Ocorreu um erro ao criar a IA Alpha 2.0. ${details}`,
+      error: details,
+    });
+  }
 }
 
 export async function listAiTemplateWorkspacesController(req, res) {

@@ -1,6 +1,8 @@
 import {
   alpha7Functions,
+  alpha2Functions,
   trierFunctions,
+  trier2Functions,
   vtexFunctions,
   vannonFunctions,
   vectorFunctions,
@@ -39,7 +41,9 @@ import { createAiVersionSnapshot } from './aiVersion.services.js';
 
 const MANAGED_PROVIDER_INSTALLERS = {
   alpha7: alpha7Functions,
+  alpha2: alpha2Functions,
   trier: trierFunctions,
+  trier2: trier2Functions,
   vtex: vtexFunctions,
   vannon: vannonFunctions,
   vetor: vectorFunctions,
@@ -357,6 +361,32 @@ export async function createAiAlpha({
   });
 }
 
+export async function createAiAlpha2({
+  instance,
+  username,
+  password,
+  code2fa,
+  name,
+  nome_cliente,
+  unidade_negocio,
+  apiKey,
+  alphaToken,
+  quantidade_de_produtos,
+}) {
+  return createManagedIntegratedAi({
+    provider: 'alpha2',
+    auth: { instance, username, password, code2fa },
+    configInput: {
+      name,
+      nome_cliente,
+      unidade_negocio,
+      apiKey,
+      alphaToken,
+      quantidade_de_produtos,
+    },
+  });
+}
+
 export async function createAiTrier({
   instance,
   username,
@@ -376,6 +406,14 @@ export async function createAiTrier({
       porta_cliente,
       apiKey,
     },
+  });
+}
+
+export async function createAiTrier2({ instance, username, password, code2fa, name, nome_cliente, apiKey, trierToken, quantidade_de_produtos }) {
+  return createManagedIntegratedAi({
+    provider: 'trier2',
+    auth: { instance, username, password, code2fa },
+    configInput: { name, nome_cliente, apiKey, trierToken, quantidade_de_produtos },
   });
 }
 

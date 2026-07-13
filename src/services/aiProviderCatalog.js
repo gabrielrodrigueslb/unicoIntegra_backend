@@ -82,6 +82,84 @@ const MANAGED_AI_PROVIDER_DEFINITIONS = {
       );
     },
   },
+  alpha2: {
+    provider: 'alpha2',
+    displayName: 'IA - Alpha 2.0',
+    templateName: 'IA - Alpha 2.0 Integrada',
+    fallbackVersion: 1,
+    templatePaths: {
+      assistant: 'ia/alpha2/alpha2_ia_config.json',
+      preProcess: 'ia/alpha2/alpha2_pre_processamento.json',
+      buscaProdutos: 'ia/alpha2/alpha2_consulta_produtos.json',
+      downloadImagem: 'ia/alpha2/alpha2_envia_produto.json',
+      ura: 'ia/alpha2/alpha2_ura.json',
+      uraAb: 'ia/alpha2/alpha2_ura_ab.json',
+    },
+    installOrder: ['preProcess', 'buscaProdutos', 'downloadImagem', 'ura', 'uraAb'],
+    updateOrder: ['preProcess', 'buscaProdutos', 'downloadImagem'],
+    createConfigSnapshot(input = {}) {
+      const quantidadeDeProdutos = Number(
+        input.quantidade_de_produtos ?? input.quantidadeDeProdutos ?? 3,
+      );
+
+      return {
+        assistantDisplayName: input.name ?? '',
+        nome_cliente: input.nome_cliente ?? input.nomeCliente ?? input.clientName ?? '',
+        apiKey: input.apiKey ?? '',
+        alphaToken: input.alphaToken ?? input.alpha_token ?? '',
+        porta_cliente: input.porta_cliente ?? input.clientPort ?? 0,
+        unidade_negocio: input.unidade_negocio ?? input.unidadeNegocio ?? '',
+        ip_cliente: input.ip_cliente ?? input.ipCliente ?? '',
+        quantidade_de_produtos:
+          Number.isFinite(quantidadeDeProdutos) && quantidadeDeProdutos > 0
+            ? Math.min(7, quantidadeDeProdutos)
+            : 3,
+      };
+    },
+    buildTemplateVariables({ instance, assistantId, config = {}, ids = {} }) {
+      const quantidadeDeProdutos = Number(config.quantidade_de_produtos);
+
+      return {
+        id: assistantId,
+        ia_id: assistantId,
+        signaturename: config.assistantDisplayName || 'LeIA',
+        nome_cliente: config.nome_cliente || '',
+        nome_cliente_var: config.nome_cliente || '',
+        api_key: config.apiKey || '',
+        api_key_var: config.apiKey || '',
+        alpha_token: config.alphaToken || '',
+        url_cliente: instance,
+        url_cliente_var: instance,
+        porta_cliente: config.porta_cliente ?? 0,
+        unidade_negocio: config.unidade_negocio || '',
+        ip_cliente: config.ip_cliente || '',
+        quantidade_de_produtos:
+          Number.isFinite(quantidadeDeProdutos) && quantidadeDeProdutos > 0
+            ? Math.min(7, quantidadeDeProdutos)
+            : 3,
+        preAutomationId: ids.preProcessId || '',
+        preProcessId: ids.preProcessId || '',
+        consulta_produtos_automation_id: ids.buscaProdutosId || '',
+        envia_produtos_automation_id: ids.downloadImagemId || '',
+        BuscaItensId: ids.buscaProdutosId || '',
+        ura_ia_id: ids.uraIaId || '',
+      };
+    },
+    canUpdateInstallation(record = {}) {
+      return Boolean(
+        record.assistantId &&
+          record.preProcessId &&
+          record.buscaProdutosId &&
+          record.downloadImagemId &&
+          record.uraIaId &&
+          record.uraAbId &&
+          record.configSnapshot?.nome_cliente &&
+          record.configSnapshot?.apiKey &&
+          record.configSnapshot?.alphaToken &&
+          record.configSnapshot?.unidade_negocio,
+      );
+    },
+  },
   trier: {
     provider: 'trier',
     displayName: 'IA - Trier',
@@ -133,6 +211,53 @@ const MANAGED_AI_PROVIDER_DEFINITIONS = {
           record.configSnapshot?.apiKey &&
           record.configSnapshot?.porta_cliente,
       );
+    },
+  },
+  trier2: {
+    provider: 'trier2',
+    displayName: 'IA - Trier 2.0',
+    templateName: 'IA - Trier 2.0 Integrada',
+    fallbackVersion: 1,
+    templatePaths: {
+      assistant: 'ia/trier2/trier2_ia_config.json',
+      preProcess: 'ia/trier2/trier2_pre_processamento.json',
+      buscaProdutos: 'ia/trier2/trier2_busca_produtos.json',
+      downloadImagem: 'ia/trier2/trier2_envia_produto.json',
+      ura: 'ia/trier2/trier2_ura.json',
+      uraAb: 'ia/trier2/trier2_ura_ab.json',
+    },
+    installOrder: ['preProcess', 'buscaProdutos', 'downloadImagem', 'ura', 'uraAb'],
+    updateOrder: ['preProcess', 'buscaProdutos', 'downloadImagem'],
+    createConfigSnapshot(input = {}) {
+      const quantidadeDeProdutos = Number(input.quantidade_de_produtos ?? input.quantidadeDeProdutos ?? 3);
+      return {
+        assistantDisplayName: input.name ?? '',
+        nome_cliente: input.nome_cliente ?? input.nomeCliente ?? input.clientName ?? '',
+        apiKey: input.apiKey ?? '',
+        trierToken: input.trierToken ?? input.trier_token ?? '',
+        quantidade_de_produtos: Number.isFinite(quantidadeDeProdutos) && quantidadeDeProdutos > 0 ? Math.min(7, quantidadeDeProdutos) : 3,
+      };
+    },
+    buildTemplateVariables({ instance, assistantId, config = {}, ids = {} }) {
+      return {
+        id: assistantId,
+        ia_id: assistantId,
+        signaturename: config.assistantDisplayName || 'LeIA',
+        nome_cliente: config.nome_cliente || '',
+        api_key: config.apiKey || '',
+        api_key_var: config.apiKey || '',
+        trier_token: config.trierToken || '',
+        url_cliente: instance,
+        url_cliente_var: instance,
+        quantidade_de_produtos: config.quantidade_de_produtos || 3,
+        preAutomationId: ids.preProcessId || '',
+        consulta_produtos_automation_id: ids.buscaProdutosId || '',
+        envia_produtos_automation_id: ids.downloadImagemId || '',
+        ura_ia_id: ids.uraIaId || '',
+      };
+    },
+    canUpdateInstallation(record = {}) {
+      return Boolean(record.assistantId && record.preProcessId && record.buscaProdutosId && record.downloadImagemId && record.uraIaId && record.uraAbId && record.configSnapshot?.nome_cliente && record.configSnapshot?.apiKey && record.configSnapshot?.trierToken);
     },
   },
   vtex: {
@@ -453,7 +578,12 @@ export function inferManagedAiProviderFromPayload(payload = {}) {
     return 'alpha7';
   }
 
+  if (name.includes('alpha2') || name.includes('alpha 2.0')) {
+    return 'alpha2';
+  }
+
   if (name.includes('trier')) {
+    if (name.includes('2.0') || name.includes('trier2')) return 'trier2';
     return 'trier';
   }
 

@@ -125,6 +125,21 @@ export async function alpha7Functions({
   }
 }
 
+export async function alpha2Functions({
+  instance,
+  token,
+  iaId,
+  configSnapshot,
+}) {
+  return installManagedProviderTemplates({
+    provider: 'alpha2',
+    instance,
+    token,
+    assistantId: iaId,
+    configSnapshot,
+  });
+}
+
 export async function trierFunctions({
   instance,
   token,
@@ -146,6 +161,10 @@ export async function trierFunctions({
     );
     throw error;
   }
+}
+
+export async function trier2Functions({ instance, token, iaId, configSnapshot }) {
+  return installManagedProviderTemplates({ provider: 'trier2', instance, token, assistantId: iaId, configSnapshot });
 }
 
 export async function vtexFunctions({

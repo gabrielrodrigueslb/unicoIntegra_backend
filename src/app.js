@@ -16,6 +16,8 @@ import newsRoutes from './routes/news.routes.js';
 import logsRoutes from './routes/logs.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 import extensionRoutes from './routes/extensions.routes.js';
+import bancoUnicoImportsRoutes from './routes/bancoUnicoImports.routes.js';
+import clientsRoutes from './routes/clients.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -194,6 +196,8 @@ app.use('/install', installingRoutes);
 app.use('/api/ia', createAiRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/extensions', extensionRoutes);
+app.use('/api/banco-unico-imports', bancoUnicoImportsRoutes);
+app.use('/api/clients', clientsRoutes);
 app.use('/api', logsRoutes);
 app.use('/chat', chatRoutes);
 

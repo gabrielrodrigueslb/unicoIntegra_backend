@@ -450,6 +450,19 @@ export async function syncCurrentAiProviderTemplatesToDb() {
   );
 }
 
+async function publishInitialProviderTemplateFromFiles(provider) {
+  const definition = getManagedAiProviderDefinition(provider);
+  if (!definition) return null;
+
+  const rawTemplates = await loadProviderRawTemplates(provider);
+  const result = await createNextProviderTemplateVersion(
+    provider,
+    buildTemplateRowPayload(provider, rawTemplates),
+  );
+
+  return normalizeTemplateRow(result.row);
+}
+
 export async function ensureCurrentAiProviderTemplatesSeeded() {
   if (!aiProviderTemplatesAvailable) {
     return;
@@ -523,6 +536,22 @@ export async function getCurrentAiProviderTemplatePackageWithOptions(
 
   if (normalizedRow) {
     return normalizedRow;
+  }
+
+  // O primeiro pacote de um provider novo precisa existir no banco antes que
+  // qualquer instalacao seja executada. Fazemos somente esse bootstrap; as
+  // versoes seguintes continuam sendo controladas pelo workspace publicado.
+  try {
+    const initialPackage = await publishInitialProviderTemplateFromFiles(provider);
+    if (initialPackage) {
+      return initialPackage;
+    }
+  } catch (error) {
+    if (requireDatabase) {
+      throw new Error(
+        `Nao foi possivel publicar o pacote inicial do provider ${provider}: ${error.message}`,
+      );
+    }
   }
 
   if (requireDatabase) {
