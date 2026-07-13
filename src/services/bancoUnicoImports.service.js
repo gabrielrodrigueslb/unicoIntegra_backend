@@ -1594,6 +1594,23 @@ export async function listBancoUnicoImportItems(jobId, query = {}) {
           ],
         }
       : {}),
+    ...(query.ean ? { ean: { contains: String(query.ean), mode: 'insensitive' } } : {}),
+    ...(query.name
+      ? {
+          OR: [
+            { nameOriginal: { contains: String(query.name), mode: 'insensitive' } },
+            { nameNormalized: { contains: String(query.name), mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+    ...(query.manufacturer
+      ? { manufacturer: { contains: String(query.manufacturer), mode: 'insensitive' } }
+      : {}),
+    ...(query.activeIngredient
+      ? { activeIngredient: { contains: String(query.activeIngredient), mode: 'insensitive' } }
+      : {}),
+    ...(query.hasError === 'yes' ? { errorMessage: { not: null } } : {}),
+    ...(query.hasError === 'no' ? { errorMessage: null } : {}),
   };
 
   const [data, totalItems] = await Promise.all([

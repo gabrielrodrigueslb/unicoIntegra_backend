@@ -5,6 +5,13 @@ const PROVIDERS = new Set(['api', 'file', 'alpha7']);
 const DEFAULT_TRIER_API_URL =
   'https://api-sgf-gateway.triersistemas.com.br/sgfpod1/rest/integracao/produto/obter-todos-v1';
 
+function maskCredentialHint(credential) {
+  const value = String(credential || '');
+  if (!value) return null;
+  const visible = value.slice(0, 6);
+  return value.length > 6 ? `${visible}…` : visible;
+}
+
 function formatClient(client) {
   return {
     id: client.id,
@@ -16,6 +23,7 @@ function formatClient(client) {
     instance: client.clientInstance || 'Nao informada',
     providerConfig: client.instance,
     hasCredential: Boolean(client.credential),
+    credentialHint: maskCredentialHint(client.credential),
     alpha7Port: client.alpha7Port,
     alpha7Database: client.alpha7Database,
     alpha7User: client.alpha7User,
