@@ -437,10 +437,16 @@ async function normalizeProduct(product, options) {
 async function mapWithConcurrency(items, concurrency, iteratee, jobId) {
   const results = new Array(items.length);
   let nextIndex = 0;
+  // ponytail: Promise.all rejects as soon as one worker throws, but sibling
+  // workers keep pulling from the shared queue unless told to stop — that's
+  // what let processing/publishing continue after a job was already marked
+  // "failed". This flag makes every worker bail before claiming new work.
+  let stopped = false;
 
   async function worker() {
-    while (true) {
+    while (!stopped) {
       await assertJobCanContinue(jobId);
+      if (stopped) return;
       const currentIndex = nextIndex;
       nextIndex += 1;
 
@@ -448,7 +454,12 @@ async function mapWithConcurrency(items, concurrency, iteratee, jobId) {
         return;
       }
 
-      results[currentIndex] = await iteratee(items[currentIndex], currentIndex);
+      try {
+        results[currentIndex] = await iteratee(items[currentIndex], currentIndex);
+      } catch (error) {
+        stopped = true;
+        throw error;
+      }
     }
   }
 
@@ -700,7 +711,7 @@ async function normalizeOptions(payload, requestedBy) {
       payload.bancoUnicoBaseUrl || DEFAULT_BANCO_UNICO_BASE_URL,
     ).trim(),
     bancoUnicoAuthorization: authorization,
-    taxonomyPath: DEFAULT_TAXONOMY_PATH,
+    taxonomyPath: process.env.MERCADOLOGICAL_TREE_CSV_PATH || DEFAULT_TAXONOMY_PATH,
     limit: payload.limit ? toNumber(payload.limit, null, { min: 1 }) : null,
     limitNew: payload.limitNew
       ? toNumber(payload.limitNew, null, { min: 1 })

@@ -79,6 +79,12 @@ const corsOptions = {
 
 export const app = express();
 
+// ponytail: Express 5's default 'simple' query parser doesn't understand
+// bracket notation (status[]=a&status[]=b), so multi-value filters (Produtos
+// tab checkboxes) silently arrived as undefined server-side. 'extended'
+// restores qs-style parsing.
+app.set('query parser', 'extended');
+
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
 
