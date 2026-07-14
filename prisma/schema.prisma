@@ -130,6 +130,8 @@ model Client {
   provider        String                 @db.VarChar(30)
   instance        String
   credential      String?
+  multiProviderTenantId Int?
+  multiProviderApiKey   String?
   alpha7Port      Int?
   alpha7Database  String?                @db.VarChar(255)
   alpha7User      String?                @db.VarChar(255)

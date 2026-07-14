@@ -1,5 +1,9 @@
 import { prisma } from '../../prisma/PrismaClient.js';
 import { createLogService } from './logs.services.js';
+import {
+  createMultiProviderClient,
+  deleteMultiProviderClient,
+} from './multiProviderClients.service.js';
 
 const PROVIDERS = new Set(['api', 'file', 'alpha7']);
 const DEFAULT_TRIER_API_URL =
@@ -24,6 +28,8 @@ function formatClient(client) {
     providerConfig: client.instance,
     hasCredential: Boolean(client.credential),
     credentialHint: maskCredentialHint(client.credential),
+    multiProviderTenantId: client.multiProviderTenantId,
+    hasMultiProviderCredential: Boolean(client.multiProviderApiKey),
     alpha7Port: client.alpha7Port,
     alpha7Database: client.alpha7Database,
     alpha7User: client.alpha7User,
@@ -88,6 +94,53 @@ export async function getClientWithCredential(id) {
   return client;
 }
 
+export async function getClientMultiProviderApiKey(id, username) {
+  const client = await prisma.client.findUnique({ where: { id: Number(id) } });
+  if (!client) {
+    throw new Error('Cliente nao encontrado.');
+  }
+  if (!client.multiProviderApiKey) {
+    throw new Error('Este cliente ainda nao possui uma API key multi-provider.');
+  }
+
+  await createLogService(
+    String(username || 'Sistema').trim() || 'Sistema',
+    `Consultou a API key multi-provider do cliente ${client.name}`,
+    client.name,
+  );
+
+  return { apiKey: client.multiProviderApiKey };
+}
+
+export async function setupClientMultiProvider(id, username) {
+  const clientId = Number(id);
+  const existing = await prisma.client.findUnique({ where: { id: clientId } });
+  if (!existing) throw new Error('Cliente nao encontrado.');
+  if (existing.provider === 'file') {
+    const error = new Error('O provedor Arquivo nao utiliza integracao multi-provider.');
+    error.statusCode = 400;
+    throw error;
+  }
+  if (existing.multiProviderTenantId || existing.multiProviderApiKey) return formatClient(existing);
+
+  const multiProvider = await createMultiProviderClient(existing);
+  const updated = await prisma.client.update({
+    where: { id: clientId },
+    data: {
+      multiProviderTenantId: multiProvider.tenantId,
+      multiProviderApiKey: multiProvider.apiKey,
+    },
+  });
+
+  await createLogService(
+    String(username || 'Sistema').trim() || 'Sistema',
+    `Realizou o setup multi-provider do cliente ${updated.name}`,
+    updated.name,
+  );
+
+  return formatClient(updated);
+}
+
 export async function createClient(payload) {
   const requestedBy = String(payload.username || 'Sistema').trim() || 'Sistema';
   const name = String(payload.name || '').trim();
@@ -113,8 +166,9 @@ export async function createClient(payload) {
   if (provider === 'alpha7') {
     const alpha7Database = String(payload.alpha7Database || '').trim();
     const alpha7User = String(payload.alpha7User || '').trim();
-    if (!alpha7Database || !alpha7User) {
-      throw new Error('Informe database e usuario quando o provedor for Alpha 7.');
+    const alpha7Password = String(payload.credential || '').trim();
+    if (!alpha7Database || !alpha7User || !alpha7Password) {
+      throw new Error('Informe database, usuario e senha quando o provedor for Alpha 7.');
     }
   }
 
@@ -122,6 +176,17 @@ export async function createClient(payload) {
   if (existing) {
     throw new Error('Ja existe um cliente cadastrado com esse nome.');
   }
+
+  const sourceCredential = String(payload.credential || '').trim() || null;
+  const multiProvider = await createMultiProviderClient({
+    name,
+    provider,
+    instance,
+    credential: sourceCredential,
+    alpha7Port: provider === 'alpha7' ? Number(payload.alpha7Port) || 5432 : null,
+    alpha7Database: provider === 'alpha7' ? String(payload.alpha7Database || '').trim() : null,
+    alpha7User: provider === 'alpha7' ? String(payload.alpha7User || '').trim() : null,
+  });
 
   const client = await prisma.client.create({
     data: {
@@ -131,7 +196,9 @@ export async function createClient(payload) {
       clientInstance,
       provider,
       instance,
-      credential: String(payload.credential || '').trim() || null,
+      credential: sourceCredential,
+      multiProviderTenantId: multiProvider?.tenantId || null,
+      multiProviderApiKey: multiProvider?.apiKey || null,
       alpha7Port: provider === 'alpha7' ? Number(payload.alpha7Port) || 5432 : null,
       alpha7Database: provider === 'alpha7' ? String(payload.alpha7Database || '').trim() : null,
       alpha7User: provider === 'alpha7' ? String(payload.alpha7User || '').trim() : null,
@@ -243,6 +310,8 @@ export async function deleteClient(id, username) {
   if (jobCount > 0) {
     throw new Error('Nao e possivel excluir um cliente que possui importacoes associadas.');
   }
+
+  await deleteMultiProviderClient(existing.multiProviderTenantId);
 
   await prisma.client.delete({ where: { id: clientId } });
 

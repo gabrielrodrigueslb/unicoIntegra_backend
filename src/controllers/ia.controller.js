@@ -43,7 +43,10 @@ function toReadableError(error) {
   }
 
   if (responseData && typeof responseData === 'object') {
-    if (typeof responseData.message === 'string' && responseData.message.trim()) {
+    if (
+      typeof responseData.message === 'string' &&
+      responseData.message.trim()
+    ) {
       return responseData.message;
     }
 
@@ -54,7 +57,7 @@ function toReadableError(error) {
     try {
       return JSON.stringify(responseData);
     } catch {
-      return 'Erro de integraÃ§Ã£o ao criar IA.';
+      return 'Erro de Integração ao criar IA.';
     }
   }
 
@@ -122,7 +125,9 @@ export async function createAiAlphaController(req, res) {
         quantidade_de_produtos ?? quantidadeDeProdutos ?? 3,
       apiKey,
     };
-    const quantidadeDeProdutosValue = Number(alphaPayload.quantidade_de_produtos);
+    const quantidadeDeProdutosValue = Number(
+      alphaPayload.quantidade_de_produtos,
+    );
 
     if (!instance) {
       return res
@@ -159,14 +164,12 @@ export async function createAiAlphaController(req, res) {
       quantidadeDeProdutosValue < 1
     ) {
       return res.status(400).json({
-        message:
-          'O campo "quantidade_de_produtos" deve ser maior que zero.',
+        message: 'O campo "quantidade_de_produtos" deve ser maior que zero.',
       });
     }
     if (quantidadeDeProdutosValue > 7) {
       return res.status(400).json({
-        message:
-          'O campo "quantidade_de_produtos" deve ter no maximo 7 itens.',
+        message: 'O campo "quantidade_de_produtos" deve ter no maximo 7 itens.',
       });
     }
     if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
@@ -202,12 +205,12 @@ export async function createAiTrierController(req, res) {
       nome_cliente,
       nomeCliente,
       porta_cliente,
-        clientPort,
-        clientName,
-        apiKey,
-        code,
-        requestedBy,
-      } = req.body;
+      clientPort,
+      clientName,
+      apiKey,
+      code,
+      requestedBy,
+    } = req.body;
 
     const trierPayload = {
       instance,
@@ -240,17 +243,17 @@ export async function createAiTrierController(req, res) {
         .status(400)
         .json({ message: 'O campo "porta_cliente" é obrigatório' });
     }
-      if (!apiKey) {
-        return res
-          .status(400)
-          .json({ message: 'O campo "apiKey" é obrigatório' });
-      }
-      if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
-        return;
-      }
+    if (!apiKey) {
+      return res
+        .status(400)
+        .json({ message: 'O campo "apiKey" é obrigatório' });
+    }
+    if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
+      return;
+    }
 
-      const aiResponse = await createAiTrier(trierPayload);
-      const currentUser = requestedBy || username || 'Sistema';
+    const aiResponse = await createAiTrier(trierPayload);
+    const currentUser = requestedBy || username || 'Sistema';
     await createLogService(
       currentUser,
       `Criou a IA da Trier - ${name}`,
@@ -277,12 +280,12 @@ export async function createAiVannonController(req, res) {
       password,
       name,
       clientEndpoint,
-        apiKey,
-        code,
-        cepLoja,
-        clientName,
-        requestedBy,
-      } = req.body;
+      apiKey,
+      code,
+      cepLoja,
+      clientName,
+      requestedBy,
+    } = req.body;
 
     // 2. Validar campos obrigatÃ³rios
     if (!instance) {
@@ -315,9 +318,9 @@ export async function createAiVannonController(req, res) {
         .status(400)
         .json({ message: 'O campo "apiKey" é obrigatório' });
     }
-      if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
-        return;
-      }
+    if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
+      return;
+    }
 
     // 3. Chamar a função correta (createAiAlpha) com todos os parâmetros
     const aiResponse = await createAiVannon(
@@ -329,9 +332,9 @@ export async function createAiVannonController(req, res) {
       clientEndpoint,
       clientName,
       apiKey,
-      cepLoja
+      cepLoja,
     );
-      const currentUser = requestedBy || username || 'Sistema';
+    const currentUser = requestedBy || username || 'Sistema';
     await createLogService(
       currentUser,
       `Criou a IA da Vannon - ${name}`,
@@ -398,7 +401,9 @@ export async function createAiVtexController(req, res) {
       quantidade_de_produtos:
         quantidade_de_produtos ?? quantidadeDeProdutos ?? 3,
     };
-    const quantidadeDeProdutosValue = Number(vtexPayload.quantidade_de_produtos);
+    const quantidadeDeProdutosValue = Number(
+      vtexPayload.quantidade_de_produtos,
+    );
 
     if (!instance) {
       return res
@@ -421,12 +426,10 @@ export async function createAiVtexController(req, res) {
         .json({ message: 'O campo "apiKey" é obrigatório' });
     }
     if (!vtexPayload.url_vtex_variable) {
-      return res
-        .status(400)
-        .json({
-          message:
-            'O campo "url_vtex_variable" (endpoint do e-commerce VTEX) � obrigat�rio',
-        });
+      return res.status(400).json({
+        message:
+          'O campo "url_vtex_variable" (endpoint do e-commerce VTEX) � obrigat�rio',
+      });
     }
     if (!vtexPayload.vtex_app_key_variable) {
       return res
@@ -443,14 +446,12 @@ export async function createAiVtexController(req, res) {
       quantidadeDeProdutosValue < 1
     ) {
       return res.status(400).json({
-        message:
-          'O campo "quantidade_de_produtos" deve ser maior que zero.',
+        message: 'O campo "quantidade_de_produtos" deve ser maior que zero.',
       });
     }
     if (quantidadeDeProdutosValue > 7) {
       return res.status(400).json({
-        message:
-          'O campo "quantidade_de_produtos" deve ter no maximo 7 itens.',
+        message: 'O campo "quantidade_de_produtos" deve ter no maximo 7 itens.',
       });
     }
     if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
@@ -485,15 +486,14 @@ export async function createAiVetorController(req, res) {
       name,
       vetorToken,
       unidade_negocio_vetor,
-        unidadeNegocioVetor,
-        apiKey,
-        code,
-        clientName,
-        requestedBy,
-      } = req.body;
+      unidadeNegocioVetor,
+      apiKey,
+      code,
+      clientName,
+      requestedBy,
+    } = req.body;
 
-    const vetorBusinessUnit =
-      unidade_negocio_vetor || unidadeNegocioVetor;
+    const vetorBusinessUnit = unidade_negocio_vetor || unidadeNegocioVetor;
 
     if (!instance) {
       return res
@@ -525,9 +525,9 @@ export async function createAiVetorController(req, res) {
         .status(400)
         .json({ message: 'O campo "apiKey" é obrigatório' });
     }
-      if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
-        return;
-      }
+    if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
+      return;
+    }
 
     const aiResponse = await createAiVetor(
       instance,
@@ -540,7 +540,7 @@ export async function createAiVetorController(req, res) {
       clientName,
       apiKey,
     );
-      const currentUser = requestedBy || username || 'Sistema';
+    const currentUser = requestedBy || username || 'Sistema';
     await createLogService(
       currentUser,
       `Criou a IA da Vetor - ${name}`,
@@ -561,7 +561,8 @@ export async function createAiVetorController(req, res) {
 export async function createAiController(req, res) {
   try {
     // 1. Obter todos os dados do body
-    const { instance, username, password, code, name, context, requestedBy } = req.body;
+    const { instance, username, password, code, name, context, requestedBy } =
+      req.body;
 
     // 2. Validar campos obrigatÃ³rios
     if (!instance) {
@@ -628,7 +629,11 @@ export async function listAiVersionsController(req, res) {
 export async function listAiInstallationsController(req, res) {
   try {
     const { instance, provider, limit } = req.query;
-    const data = await listManagedAiInstallations({ instance, provider, limit });
+    const data = await listManagedAiInstallations({
+      instance,
+      provider,
+      limit,
+    });
     return res.status(200).json({ data });
   } catch (error) {
     console.error('Erro ao listar instalacoes de IA:', error);
@@ -642,7 +647,15 @@ export async function listAiInstallationsController(req, res) {
 export async function updateAiInstallationController(req, res) {
   try {
     const { id } = req.params;
-    const { username, password, code, force, componentKey, component, requestedBy } = req.body;
+    const {
+      username,
+      password,
+      code,
+      force,
+      componentKey,
+      component,
+      requestedBy,
+    } = req.body;
 
     if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) {
       return;
@@ -738,8 +751,7 @@ export async function patchAiInstallationUraQuantityController(req, res) {
       username,
       password,
       code2fa: code,
-      quantidadeDeProdutos:
-        quantidade_de_produtos ?? quantidadeDeProdutos ?? 3,
+      quantidadeDeProdutos: quantidade_de_produtos ?? quantidadeDeProdutos ?? 3,
     });
 
     await createLogService(
@@ -919,7 +931,22 @@ export async function syncAiTemplatesController(req, res) {
 
 export async function createAiTrier2Controller(req, res) {
   try {
-    const { instance, username, password, name, nome_cliente, nomeCliente, clientName, apiKey, trierToken, trier_token, quantidade_de_produtos, quantidadeDeProdutos, code, requestedBy } = req.body;
+    const {
+      instance,
+      username,
+      password,
+      name,
+      nome_cliente,
+      nomeCliente,
+      clientName,
+      apiKey,
+      trierToken,
+      trier_token,
+      quantidade_de_produtos,
+      quantidadeDeProdutos,
+      code,
+      requestedBy,
+    } = req.body;
     const payload = {
       instance,
       username,
@@ -929,22 +956,46 @@ export async function createAiTrier2Controller(req, res) {
       nome_cliente: nome_cliente || nomeCliente || clientName,
       apiKey,
       trierToken: trierToken || trier_token,
-      quantidade_de_produtos: quantidade_de_produtos ?? quantidadeDeProdutos ?? 3,
+      quantidade_de_produtos:
+        quantidade_de_produtos ?? quantidadeDeProdutos ?? 3,
     };
-    for (const [field, value] of Object.entries({ instance: payload.instance, name: payload.name, nome_cliente: payload.nome_cliente, apiKey: payload.apiKey, trierToken: payload.trierToken })) {
-      if (!value) return res.status(400).json({ message: `O campo "${field}" e obrigatorio` });
+    for (const [field, value] of Object.entries({
+      instance: payload.instance,
+      name: payload.name,
+      nome_cliente: payload.nome_cliente,
+      apiKey: payload.apiKey,
+      trierToken: payload.trierToken,
+    })) {
+      if (!value)
+        return res
+          .status(400)
+          .json({ message: `O campo "${field}" e obrigatorio` });
     }
     const quantidade = Number(payload.quantidade_de_produtos);
     if (!Number.isFinite(quantidade) || quantidade < 1 || quantidade > 7) {
-      return res.status(400).json({ message: 'O campo "quantidade_de_produtos" deve estar entre 1 e 7.' });
+      return res
+        .status(400)
+        .json({
+          message: 'O campo "quantidade_de_produtos" deve estar entre 1 e 7.',
+        });
     }
-    if (requireManualInstanceAuthIfNeeded(res, { username, password, code })) return;
+    if (requireManualInstanceAuthIfNeeded(res, { username, password, code }))
+      return;
     const response = await createAiTrier2(payload);
-    await createLogService(requestedBy || username || 'Sistema', `Criou a IA Trier 2.0 - ${name}`, instance);
+    await createLogService(
+      requestedBy || username || 'Sistema',
+      `Criou a IA Trier 2.0 - ${name}`,
+      instance,
+    );
     return res.status(200).json(response);
   } catch (error) {
     const details = toReadableError(error);
-    return res.status(500).json({ message: `Ocorreu um erro ao criar a IA Trier 2.0. ${details}`, error: details });
+    return res
+      .status(500)
+      .json({
+        message: `Ocorreu um erro ao criar a IA Trier 2.0. ${details}`,
+        error: details,
+      });
   }
 }
 
@@ -979,7 +1030,8 @@ export async function createAiAlpha2Controller(req, res) {
       unidade_negocio: unidade_negocio || unidadeNegocio,
       apiKey,
       alphaToken: alphaToken || alpha_token,
-      quantidade_de_produtos: quantidade_de_produtos ?? quantidadeDeProdutos ?? 3,
+      quantidade_de_produtos:
+        quantidade_de_produtos ?? quantidadeDeProdutos ?? 3,
     };
     const quantidade = Number(payload.quantidade_de_produtos);
 
@@ -992,7 +1044,9 @@ export async function createAiAlpha2Controller(req, res) {
       alphaToken: payload.alphaToken,
     })) {
       if (!value) {
-        return res.status(400).json({ message: `O campo "${field}" e obrigatorio` });
+        return res
+          .status(400)
+          .json({ message: `O campo "${field}" e obrigatorio` });
       }
     }
     if (!Number.isFinite(quantidade) || quantidade < 1 || quantidade > 7) {
@@ -1050,7 +1104,10 @@ export async function getAiTemplateWorkspaceController(req, res) {
 export async function saveAiTemplateWorkspaceDraftController(req, res) {
   try {
     const { provider } = req.params;
-    const response = await saveAiTemplateWorkspaceDraft(provider, req.body || {});
+    const response = await saveAiTemplateWorkspaceDraft(
+      provider,
+      req.body || {},
+    );
     return res.status(200).json(response);
   } catch (error) {
     console.error('Erro ao salvar rascunho de templates de IA:', error);
@@ -1078,7 +1135,10 @@ export async function discardAiTemplateWorkspaceDraftController(req, res) {
 export async function releaseAiTemplateWorkspaceDraftController(req, res) {
   try {
     const { provider } = req.params;
-    const response = await releaseAiTemplateWorkspaceDraft(provider, req.body || {});
+    const response = await releaseAiTemplateWorkspaceDraft(
+      provider,
+      req.body || {},
+    );
     return res.status(200).json(response);
   } catch (error) {
     console.error('Erro ao publicar rascunho de templates de IA:', error);
@@ -1092,7 +1152,10 @@ export async function releaseAiTemplateWorkspaceDraftController(req, res) {
 export async function rollbackAiTemplateWorkspaceController(req, res) {
   try {
     const { provider } = req.params;
-    const response = await rollbackAiTemplateWorkspace(provider, req.body || {});
+    const response = await rollbackAiTemplateWorkspace(
+      provider,
+      req.body || {},
+    );
     return res.status(200).json(response);
   } catch (error) {
     console.error('Erro ao realizar rollback de templates de IA:', error);
@@ -1102,5 +1165,3 @@ export async function rollbackAiTemplateWorkspaceController(req, res) {
     });
   }
 }
-
-
