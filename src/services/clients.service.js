@@ -5,7 +5,7 @@ import {
   deleteMultiProviderClient,
 } from './multiProviderClients.service.js';
 
-const PROVIDERS = new Set(['api', 'file', 'alpha7']);
+const PROVIDERS = new Set(['api', 'file', 'alpha7', 'vetor']);
 const DEFAULT_TRIER_API_URL =
   'https://api-sgf-gateway.triersistemas.com.br/sgfpod1/rest/integracao/produto/obter-todos-v1';
 
@@ -163,6 +163,9 @@ export async function createClient(payload) {
     throw new Error('Informe a configuracao tecnica do provedor.');
   }
 
+  if (provider === 'vetor' && !String(payload.credential || '').trim()) {
+    throw new Error('Informe o token Vetor para criar a integracao.');
+  }
   if (provider === 'alpha7') {
     const alpha7Database = String(payload.alpha7Database || '').trim();
     const alpha7User = String(payload.alpha7User || '').trim();
@@ -299,7 +302,7 @@ export async function updateClient(id, payload) {
   return formatClient(updated);
 }
 
-export async function deleteClient(id, username) {
+export async function deleteClient(id, username, { force = false } = {}) {
   const clientId = Number(id);
   const existing = await prisma.client.findUnique({ where: { id: clientId } });
   if (!existing) {
@@ -307,11 +310,20 @@ export async function deleteClient(id, username) {
   }
 
   const jobCount = await prisma.bancoUnicoImportJob.count({ where: { clientId } });
-  if (jobCount > 0) {
-    throw new Error('Nao e possivel excluir um cliente que possui importacoes associadas.');
+  if (jobCount > 0 && !force) {
+    const error = new Error(
+      `O cliente ${existing.name} possui ${jobCount} importacao(oes) associada(s). Confirme para excluir tudo em cadeia.`,
+    );
+    error.statusCode = 409;
+    error.jobCount = jobCount;
+    throw error;
   }
 
   await deleteMultiProviderClient(existing.multiProviderTenantId);
+
+  if (jobCount > 0) {
+    await prisma.bancoUnicoImportJob.deleteMany({ where: { clientId } });
+  }
 
   await prisma.client.delete({ where: { id: clientId } });
 

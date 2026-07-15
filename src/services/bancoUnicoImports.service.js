@@ -1276,12 +1276,23 @@ async function runImportJob(jobId, options) {
       finishedAt: new Date(),
     });
 
-    await emitEvent(jobId, 'Importacao concluida.');
-    await createLogService(
-      options.requestedBy,
-      `Concluiu subida Banco Unico #${jobId} para ${options.clientName} com ${metrics.totalPublished} item(ns) subido(s)`,
-      options.clientName,
-    );
+    // ponytail: job is already durably marked "completed" above. A transient
+    // failure in these two side-effect calls (SSE event log, audit log) must
+    // not fall into the catch below and flip a successful import back to
+    // "failed" — that produced false-failure statuses on real, finished jobs.
+    try {
+      await emitEvent(jobId, 'Importacao concluida.');
+      await createLogService(
+        options.requestedBy,
+        `Concluiu subida Banco Unico #${jobId} para ${options.clientName} com ${metrics.totalPublished} item(ns) subido(s)`,
+        options.clientName,
+      );
+    } catch (postCompletionError) {
+      console.error(
+        `[bancoUnicoImports] Falha ao registrar evento/log de conclusao do job #${jobId} (job ja concluido com sucesso):`,
+        postCompletionError,
+      );
+    }
   } catch (error) {
     const status = error instanceof ImportCancelledError ? 'cancelled' : 'failed';
     await updateJob(jobId, {

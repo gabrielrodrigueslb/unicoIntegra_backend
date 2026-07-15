@@ -89,12 +89,14 @@ export async function updateClientController(req, res) {
 
 export async function deleteClientController(req, res) {
   try {
-    await deleteClient(req.params.id, req.body?.username);
+    const force = req.query?.force === 'true' || req.body?.force === true;
+    await deleteClient(req.params.id, req.body?.username, { force });
     return res.status(204).end();
   } catch (error) {
     console.error(error);
     return res.status(resolveStatusCode(error, 500)).json({
       error: error.message || 'Erro ao excluir cliente.',
+      jobCount: error.jobCount,
     });
   }
 }

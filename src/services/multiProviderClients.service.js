@@ -82,6 +82,25 @@ export function buildMultiProviderClientRequest(client) {
     };
   }
 
+  if (client.provider === 'vetor') {
+    if (!client.credential) throw createError('Informe o token Vetor para criar a integracao.', 400);
+    return {
+      path: '/api/admin/clientes/vetor',
+      body: {
+        name: client.name,
+        vetorToken: client.credential,
+        unidade: client.instance,
+        host: env.MULTIPROVIDER_TENANT_DB_HOST,
+        port: env.MULTIPROVIDER_TENANT_DB_PORT,
+        database: tenantDatabaseName(client.name),
+        user: env.MULTIPROVIDER_TENANT_DB_USER,
+        password: env.MULTIPROVIDER_TENANT_DB_PASSWORD,
+        ssl: env.MULTIPROVIDER_TENANT_DB_SSL,
+        autoSync: false,
+      },
+    };
+  }
+
   return null;
 }
 
