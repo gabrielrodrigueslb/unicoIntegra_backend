@@ -29,7 +29,7 @@ function requireMultiProviderConfiguration(provider) {
     throw createError('A integracao multi-provider nao esta configurada no servidor.', 503);
   }
 
-  if (provider === 'api') {
+  if (provider === 'api' || provider === 'vetor') {
     const missing = [
       ['MULTIPROVIDER_TENANT_DB_HOST', env.MULTIPROVIDER_TENANT_DB_HOST],
       ['MULTIPROVIDER_TENANT_DB_USER', env.MULTIPROVIDER_TENANT_DB_USER],
@@ -37,7 +37,8 @@ function requireMultiProviderConfiguration(provider) {
     ].find(([, value]) => !value);
 
     if (missing) {
-      throw createError(`A configuracao ${missing[0]} e obrigatoria para Trier.`, 503);
+      const providerLabel = provider === 'api' ? 'Trier' : 'Vetor';
+      throw createError(`A configuracao ${missing[0]} e obrigatoria para ${providerLabel}.`, 503);
     }
   }
 }
