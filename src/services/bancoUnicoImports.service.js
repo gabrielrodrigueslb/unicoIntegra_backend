@@ -10,6 +10,7 @@ import { Alpha7ProductsClient } from '../modules/banco-unico-import/runtime/serv
 import { MercadologicalClassifierService } from '../modules/banco-unico-import/runtime/services/mercadological-classifier.service.js';
 import { MercadologicalTreeService } from '../modules/banco-unico-import/runtime/services/mercadological-tree.service.js';
 import { TrierProductsClient } from '../modules/banco-unico-import/runtime/services/trier-products.client.js';
+import { VetorProductsClient } from '../modules/banco-unico-import/runtime/services/vetor-products.client.js';
 import {
   isValidEan,
   normalizeEan,
@@ -657,6 +658,18 @@ async function normalizeOptions(payload, requestedBy) {
     );
   }
 
+  const vetorToken =
+    client && client.provider === 'vetor'
+      ? String(client.credential || '').trim()
+      : String(payload.vetorToken || '').trim();
+  const vetorUnidade =
+    client && client.provider === 'vetor'
+      ? String(client.instance || '').trim()
+      : String(payload.vetorUnidade || '').trim();
+  if (sourceType === 'vetor' && !vetorToken) {
+    throw new Error('Informe o token da API Vetor.');
+  }
+
   const authorization = String(payload.bancoUnicoAuthorization || '').trim();
 
   return {
@@ -669,7 +682,9 @@ async function normalizeOptions(payload, requestedBy) {
         ? sourceApiUrl
         : sourceType === 'alpha7'
           ? `alpha7-postgres://${alpha7Host}/${alpha7Database}`
-          : sourceFilePath,
+          : sourceType === 'vetor'
+            ? `vetor://unidade-${vetorUnidade || '?'}`
+            : sourceFilePath,
     sourceFilePath,
     sourceApiUrl,
     sourceToken,
@@ -692,6 +707,8 @@ async function normalizeOptions(payload, requestedBy) {
     alpha7User,
     alpha7Password,
     alpha7Schema,
+    vetorToken,
+    vetorUnidade,
     batchSize: toNumber(payload.batchSize, 50, { min: 1 }),
     classifyConcurrency: toNumber(payload.classifyConcurrency, 5, { min: 1 }),
     publishConcurrency: toNumber(payload.publishConcurrency, 1, { min: 1 }),
@@ -745,6 +762,20 @@ async function loadSourceProducts(options, jobId = null) {
       products: await client.fetchAllProducts(),
       sourceLabel: client.describeSource(),
       sourceProviderLabel: 'Alpha 7',
+    };
+  }
+
+  if (options.sourceType === 'vetor') {
+    const client = new VetorProductsClient({
+      token: options.vetorToken,
+      unidade: options.vetorUnidade,
+      pageSize: options.sourcePageSize,
+    });
+
+    return {
+      products: await client.fetchAllProducts(),
+      sourceLabel: client.describeSource(),
+      sourceProviderLabel: 'Vetor',
     };
   }
 
