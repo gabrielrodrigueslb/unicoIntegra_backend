@@ -19,10 +19,16 @@ function titleCase(texto) {
     .map((p, i) => {
       if (manter.has(p)) return p;
       if (/^\d/.test(p)) return p;
-      if (p.includes("/") || p.includes("+")) return p;
-      const lower = p.toLowerCase();
-      if (i > 0 && minusculas.has(lower)) return lower;
-      return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
+      // Dosagem composta (500+125MG, 10MG/20MG) fica intacta, mas um "+" ou
+      // "/" colado numa palavra sem numero (+EXODUS) e so prefixo de nome de
+      // produto - nao deve escapar do title case, senao fica gritando em
+      // maiuscula por causa de um simbolo.
+      if ((p.includes("/") || p.includes("+")) && /\d/.test(p)) return p;
+      const prefixo = /^[+/]/.test(p) ? p.charAt(0) : "";
+      const resto = prefixo ? p.slice(1) : p;
+      const lower = resto.toLowerCase();
+      if (i > 0 && minusculas.has(lower)) return prefixo + lower;
+      return prefixo + resto.charAt(0).toUpperCase() + resto.slice(1).toLowerCase();
     })
     .join(" ")
     .replace(/\bMl\b/g, "mL")
@@ -129,6 +135,12 @@ function aplicarContextos(textoOriginal) {
   // ponto vira separador, mas códigos tipo 8.3 ficam preservados
   s = s.replace(/[.]+/g, " ");
   s = restaurarPontosNumericos(s);
+
+  // "+" colado numa letra e separador de nome (prefixo tipo "+EXODUS" ou
+  // combinação "BANANA+ACAI"), nao dosagem - vira espaço aqui pra virar
+  // palavra normal no title case. "+" entre digitos (500+125MG) fica
+  // intacto pras regras de dosagem composta mais abaixo.
+  s = s.replace(/\+(?=[A-ZÀ-Ú])/g, " ");
 
   if (contextoSuplemento(original)) {
     s = s
