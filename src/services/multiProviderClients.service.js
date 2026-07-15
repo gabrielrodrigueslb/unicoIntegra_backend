@@ -24,28 +24,14 @@ function tenantDatabaseName(name) {
   return `cliente_${slug}_cache`;
 }
 
-function requireMultiProviderConfiguration(provider) {
+function requireMultiProviderConfiguration() {
   if (!env.MULTIPROVIDER_BASE_URL || !env.MULTIPROVIDER_ADMIN_API_KEY) {
     throw createError('A integracao multi-provider nao esta configurada no servidor.', 503);
-  }
-
-  // Only Trier provisions a tenant cache DB on our shared Postgres. Vetor is
-  // a pure REST API integration with no database of its own.
-  if (provider === 'api') {
-    const missing = [
-      ['MULTIPROVIDER_TENANT_DB_HOST', env.MULTIPROVIDER_TENANT_DB_HOST],
-      ['MULTIPROVIDER_TENANT_DB_USER', env.MULTIPROVIDER_TENANT_DB_USER],
-      ['MULTIPROVIDER_TENANT_DB_PASSWORD', env.MULTIPROVIDER_TENANT_DB_PASSWORD],
-    ].find(([, value]) => !value);
-
-    if (missing) {
-      throw createError(`A configuracao ${missing[0]} e obrigatoria para Trier.`, 503);
-    }
   }
 }
 
 export function buildMultiProviderClientRequest(client) {
-  requireMultiProviderConfiguration(client.provider);
+  requireMultiProviderConfiguration();
 
   if (client.provider === 'alpha7') {
     return {
@@ -72,12 +58,11 @@ export function buildMultiProviderClientRequest(client) {
       body: {
         name: client.name,
         trierToken: client.credential,
-        host: env.MULTIPROVIDER_TENANT_DB_HOST,
-        port: env.MULTIPROVIDER_TENANT_DB_PORT,
+        // host/port/user/password for the shared cache DB come from the
+        // multi-provider's own TENANT_DB_ADMIN_* config now - every trier
+        // tenant uses the same Postgres, so it no longer needs to be
+        // duplicated (and kept in sync) across both services' envs.
         database: tenantDatabaseName(client.name),
-        user: env.MULTIPROVIDER_TENANT_DB_USER,
-        password: env.MULTIPROVIDER_TENANT_DB_PASSWORD,
-        ssl: env.MULTIPROVIDER_TENANT_DB_SSL,
         autoSync: true,
         autoSyncMode: 'bootstrap',
       },
@@ -134,7 +119,7 @@ export async function createMultiProviderClient(client) {
 export async function deleteMultiProviderClient(tenantId) {
   if (!tenantId) return;
 
-  requireMultiProviderConfiguration('alpha7');
+  requireMultiProviderConfiguration();
 
   try {
     await axios.delete(
