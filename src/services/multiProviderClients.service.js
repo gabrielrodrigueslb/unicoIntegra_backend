@@ -29,7 +29,9 @@ function requireMultiProviderConfiguration(provider) {
     throw createError('A integracao multi-provider nao esta configurada no servidor.', 503);
   }
 
-  if (provider === 'api' || provider === 'vetor') {
+  // Only Trier provisions a tenant cache DB on our shared Postgres. Vetor is
+  // a pure REST API integration with no database of its own.
+  if (provider === 'api') {
     const missing = [
       ['MULTIPROVIDER_TENANT_DB_HOST', env.MULTIPROVIDER_TENANT_DB_HOST],
       ['MULTIPROVIDER_TENANT_DB_USER', env.MULTIPROVIDER_TENANT_DB_USER],
@@ -37,8 +39,7 @@ function requireMultiProviderConfiguration(provider) {
     ].find(([, value]) => !value);
 
     if (missing) {
-      const providerLabel = provider === 'api' ? 'Trier' : 'Vetor';
-      throw createError(`A configuracao ${missing[0]} e obrigatoria para ${providerLabel}.`, 503);
+      throw createError(`A configuracao ${missing[0]} e obrigatoria para Trier.`, 503);
     }
   }
 }
@@ -91,12 +92,6 @@ export function buildMultiProviderClientRequest(client) {
         name: client.name,
         vetorToken: client.credential,
         unidade: client.instance,
-        host: env.MULTIPROVIDER_TENANT_DB_HOST,
-        port: env.MULTIPROVIDER_TENANT_DB_PORT,
-        database: tenantDatabaseName(client.name),
-        user: env.MULTIPROVIDER_TENANT_DB_USER,
-        password: env.MULTIPROVIDER_TENANT_DB_PASSWORD,
-        ssl: env.MULTIPROVIDER_TENANT_DB_SSL,
         autoSync: false,
       },
     };
