@@ -98,12 +98,17 @@ ${produtoPreNormalizado}
 
 export function normalizarNomeLocal(produto) {
   const nomeOriginal = typeof produto === "string" ? produto : produto.nome || produto.nomeOriginal;
+  const nomeNormalizado = preNormalizarProduto(nomeOriginal);
+  // Catalogos de origem as vezes trazem nomes-lixo (".", vazio); normalizar
+  // isso produz string vazia. Publicar sem nome e pior que publicar cru, e
+  // sinaliza pra revisao manual em vez de mascarar o dado ruim.
+  const semNomeUtil = !nomeNormalizado || !nomeNormalizado.trim();
 
   return {
     nomeOriginal,
-    nomeNormalizadoFinal: preNormalizarProduto(nomeOriginal),
-    confianca: "alta",
-    precisaRevisao: false,
+    nomeNormalizadoFinal: semNomeUtil ? String(nomeOriginal || "").trim() : nomeNormalizado,
+    confianca: semNomeUtil ? "baixa" : "alta",
+    precisaRevisao: semNomeUtil,
     codigoBarras: produto.codigoBarras ?? null,
     nomeLaboratorio: produto.nomeLaboratorio ?? null,
     nomePrincipioAtivo: produto.nomePrincipioAtivo ?? null
