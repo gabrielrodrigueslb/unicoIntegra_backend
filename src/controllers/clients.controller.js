@@ -4,6 +4,7 @@ import {
   getClient,
   getClientMultiProviderApiKey,
   listClients,
+  regenerateClientMultiProviderApiKey,
   setupClientMultiProvider,
   updateClient,
 } from '../services/clients.service.js';
@@ -59,6 +60,18 @@ export async function setupClientMultiProviderController(req, res) {
     console.error(error);
     return res.status(resolveStatusCode(error, 500)).json({
       error: error.message || 'Erro ao realizar o setup multi-provider.',
+    });
+  }
+}
+
+export async function regenerateClientMultiProviderApiKeyController(req, res) {
+  try {
+    const result = await regenerateClientMultiProviderApiKey(req.params.id, req.body?.username);
+    return res.json(result);
+  } catch (error) {
+    console.error(error);
+    return res.status(resolveStatusCode(error, 500)).json({
+      error: error.message || 'Erro ao gerar nova API key multi-provider.',
     });
   }
 }
