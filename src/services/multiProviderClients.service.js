@@ -116,6 +116,38 @@ export async function createMultiProviderClient(client) {
   }
 }
 
+export async function regenerateMultiProviderApiKey(tenantId) {
+  if (!tenantId) {
+    throw createError('Este cliente nao possui integracao multi-provider configurada.', 400);
+  }
+
+  requireMultiProviderConfiguration();
+
+  try {
+    const response = await axios.post(
+      `${env.MULTIPROVIDER_BASE_URL.replace(/\/+$/, '')}/api/admin/clientes/${tenantId}/regenerar-api-key`,
+      {},
+      {
+        headers: { 'x-api-key': env.MULTIPROVIDER_ADMIN_API_KEY },
+        timeout: 30000,
+      },
+    );
+    const apiKey = String(response.data?.apiKey || '').trim();
+
+    if (!apiKey) {
+      throw createError('A API multi-provider nao retornou a nova credencial.', 502);
+    }
+
+    return apiKey;
+  } catch (error) {
+    if (error.statusCode) throw error;
+
+    const statusCode = error.response?.status;
+    const message = error.response?.data?.message || error.message;
+    throw createError(`Falha ao gerar nova API key no multi-provider: ${message}`, statusCode || 502);
+  }
+}
+
 export async function deleteMultiProviderClient(tenantId) {
   if (!tenantId) return;
 

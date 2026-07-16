@@ -3,6 +3,7 @@ import { createLogService } from './logs.services.js';
 import {
   createMultiProviderClient,
   deleteMultiProviderClient,
+  regenerateMultiProviderApiKey,
 } from './multiProviderClients.service.js';
 
 const PROVIDERS = new Set(['api', 'file', 'alpha7', 'vetor']);
@@ -135,6 +136,34 @@ export async function setupClientMultiProvider(id, username) {
   await createLogService(
     String(username || 'Sistema').trim() || 'Sistema',
     `Realizou o setup multi-provider do cliente ${updated.name}`,
+    updated.name,
+  );
+
+  return formatClient(updated);
+}
+
+export async function regenerateClientMultiProviderApiKey(id, username) {
+  const clientId = Number(id);
+  const existing = await prisma.client.findUnique({ where: { id: clientId } });
+  if (!existing) {
+    throw new Error('Cliente nao encontrado.');
+  }
+  if (!existing.multiProviderTenantId) {
+    const error = new Error('Este cliente nao possui integracao multi-provider configurada.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const apiKey = await regenerateMultiProviderApiKey(existing.multiProviderTenantId);
+
+  const updated = await prisma.client.update({
+    where: { id: clientId },
+    data: { multiProviderApiKey: apiKey },
+  });
+
+  await createLogService(
+    String(username || 'Sistema').trim() || 'Sistema',
+    `Gerou nova API key multi-provider para o cliente ${updated.name} (a anterior foi invalidada)`,
     updated.name,
   );
 
